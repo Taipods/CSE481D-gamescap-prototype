@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Escape The World</title>
+
+<style>
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: black;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 10;
+}
+
+button {
+  margin-top: 20px;
+  padding: 12px 28px;
+  font-family: monospace;
+  font-size: 16px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro" class="overlay">
+  <h1>ESCAPE THE WORLD</h1>
+  <p>
+    Controls: <b>W A S D</b><br><br>
+    Find the key.<br>
+    Escape each level.
+  </p>
+  <button id="startBtn">START</button>
+</div>
+
+<!-- GAME -->
+<iframe id="game"></iframe>
+
+<!-- RETRY -->
+<div id="retry" class="overlay" style="display:none;">
+  <h1>YOU DIED</h1>
+  <button id="retryBtn">RETRY</button>
+</div>
+
+<!-- NEXT LEVEL -->
+<div id="next" class="overlay" style="display:none;">
+  <h1>LEVEL CLEARED</h1>
+  <button id="nextBtn">NEXT LEVEL</button>
+</div>
+
+<!-- END -->
+<div id="end" class="overlay" style="display:none;">
+  <h1>CONGRATS</h1>
+  <p>You escaped the world.</p>
+</div>
+
+<script>
+const game = document.getElementById("game");
+const intro = document.getElementById("intro");
+const retry = document.getElementById("retry");
+const next = document.getElementById("next");
+const end = document.getElementById("end");
+
+const startBtn = document.getElementById("startBtn");
+const retryBtn = document.getElementById("retryBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let currentLevel = 1;
+const TOTAL_LEVELS = 3;
+
+/* ================= LOAD LEVEL ================= */
+function loadLevel(n) {
+  game.src = `level${n}/index.html`;
+  game.style.display = "block";
+}
+
+/* ================= START ================= */
+startBtn.onclick = () => {
+  intro.style.display = "none";
+  loadLevel(currentLevel);
+};
+
+/* ================= RETRY ================= */
+retryBtn.onclick = () => {
+  retry.style.display = "none";
+  game.style.display = "block";
+  game.contentWindow.location.reload(); // ✅ CRITICAL FIX
+};
+
+/* ================= NEXT LEVEL ================= */
+nextBtn.onclick = () => {
+  next.style.display = "none";
+  currentLevel++;
+
+  if (currentLevel > TOTAL_LEVELS) {
+    game.style.display = "none";
+    end.style.display = "flex";
+  } else {
+    loadLevel(currentLevel);
+  }
+};
+
+/* ================= MESSAGES FROM LEVELS ================= */
+window.addEventListener("message", e => {
+  if (!e.data || !e.data.type) return;
+
+  if (e.data.type === "DEATH") {
+    game.style.display = "none";
+    retry.style.display = "flex";
+  }
+
+  if (e.data.type === "WIN") {
+    game.style.display = "none";
+    next.style.display = "flex";
+  }
+});
+</script>
+
+</body>
+</html>
+
