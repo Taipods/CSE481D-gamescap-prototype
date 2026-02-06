@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Hub | Project Arcade</title>
+    <style>
+        :root {
+            --bg: #0a0a0b;
+            --card-bg: #16161a;
+            --accent: #00ff41; /* Terminal Green */
+            --text: #e1e1e6;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            border-bottom: 1px solid #333;
+            width: 100%;
+            background: #111;
+        }
+
+        h1 {
+            margin: 0;
+            letter-spacing: 4px;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .container {
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            padding: 40px 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            color: #fff;
+        }
+
+        .card p {
+            color: #9494a5;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #282a36;
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .launch-btn {
+            display: block;
+            text-align: center;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 10px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: 0.3s;
+            margin-top: 15px;
+        }
+
+        .launch-btn:hover {
+            background: var(--accent);
+            color: #000;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            color: #444;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>PROTOTYPE_ARCHIVE</h1>
+    <p>Select a simulation to initialize</p>
+</header>
+
+<div class="container">
+    <div class="card">
+        <span class="tag">ACTION / RPG</span>
+        <h2>Extinction Protocol</h2>
+        <p>A dino-themed roguelike featuring economy updates, weapon tiers, and sector clearing. Manage scrap and genetic mutations.</p>
+        <a href="dino-roguelike-8.0.html" class="launch-btn">INITIALIZE 8.0</a>
+    </div>
+
+    <div class="card">
+        <span class="tag">HORROR / RAYCASTING</span>
+        <h2>Escape (9.0)</h2>
+        <p>First-person psychological horror. Features spatial phasing between Purgatory and Hell dimensions with a retro raycasting engine.</p>
+        <a href="firstpersonhorror9.0.html" class="launch-btn">INITIALIZE 9.0</a>
+    </div>
+
+    <div class="card">
+        <span class="tag">STRATEGY / HEX</span>
+        <h2>HexWar V6</h2>
+        <p>Turn-based hexagonal combat with a balanced economy. Includes faction selection and a custom unit creator/deck editor.</p>
+        <a href="turnbase-6.0.html" class="launch-btn">INITIALIZE V6</a>
+    </div>
+
+    <div class="card">
+        <span class="tag">PUZZLE / ADVENTURE</span>
+        <h2>Escape The World</h2>
+        <p>The multi-level Omega Protocol. Includes terminal hacking, the White Labyrinth, and stealth elements across multiple versions.</p>
+        <a href="index.html" class="launch-btn">INITIALIZE OMEGA</a>
+    </div>
+</div>
+
+<footer>
+    &copy; 2026 Simulation Archive - Integrity: 100%
+</footer>
+
+</body>
+</html>
