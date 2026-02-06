@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Level 2 – Prison Escape</title>
+<style>
+body {
+  margin: 0;
+  background: #050505;
+  color: white;
+  font-family: monospace;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+}
+</style>
+</head>
+<body>
+
+<canvas id="game" width="800" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+/* ================= STATE LOCKS ================= */
+let dead = false;
+let won = false;
+
+/* ================= MAP ================= */
+const map = [
+ [1,1,1,1,1,1,1,1,1,1,1,1],
+ [1,0,0,0,0,1,0,0,0,0,0,1],
+ [1,0,1,1,0,1,0,1,1,1,0,1],
+ [1,0,1,0,0,0,0,0,0,1,0,1],
+ [1,0,1,0,1,1,1,1,0,1,0,1],
+ [1,0,0,0,0,0,0,1,0,0,0,1],
+ [1,1,1,1,1,1,0,1,1,1,0,1],
+ [1,0,0,0,0,0,0,0,0,1,0,1],
+ [1,0,1,1,1,1,1,1,0,1,0,1],
+ [1,0,0,0,0,0,0,1,0,0,0,1],
+ [1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+/* ================= ENTITIES ================= */
+let player = {
+  x: 1.5,
+  y: 1.5,
+  angle: Math.PI / 2,
+  hasKey: false
+};
+
+let guard = {
+  x: 10.5,
+  y: 1.5,
+  state: "patrol",
+  patrolIndex: 0
+};
+
+const patrolPath = [
+  {x:10.5, y:1.5},
+  {x:10.5, y:9.5},
+  {x:6.5,  y:9.5},
+  {x:6.5,  y:5.5},
+  {x:3.5,  y:5.5},
+  {x:3.5,  y:1.5}
+];
+
+let key = {
+  x: 5.5,
+  y: 9.5,
+  taken: false,
+  visible: false
+};
+
+let exit = {
+  x: 10.5,
+  y: 9.5
+};
+
+/* ================= INPUT ================= */
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+/* ================= HELPERS ================= */
+function isWall(x,y) {
+  return map[Math.floor(y)]?.[Math.floor(x)] === 1;
+}
+function dist(a,b) {
+  return Math.hypot(a.x-b.x, a.y-b.y);
+}
+
+/* ================= UPDATE ================= */
+function update() {
+  if (dead || won) return;
+
+  const moveSpeed = 0.04;
+  const rotSpeed = 0.04;
+
+  if (keys["a"]) player.angle -= rotSpeed;
+  if (keys["d"]) player.angle += rotSpeed;
+
+  let nx = player.x;
+  let ny = player.y;
+
+  if (keys["w"]) {
+    nx += Math.cos(player.angle) * moveSpeed;
+    ny += Math.sin(player.angle) * moveSpeed;
+  }
+  if (keys["s"]) {
+    nx -= Math.cos(player.angle) * moveSpeed;
+    ny -= Math.sin(player.angle) * moveSpeed;
+  }
+
+  if (!isWall(nx, ny)) {
+    player.x = nx;
+    player.y = ny;
+  }
+
+  if (!key.taken && dist(player, key) < 2) key.visible = true;
+  if (key.visible && !key.taken && dist(player, key) < 0.5) {
+    key.taken = true;
+    player.hasKey = true;
+  }
+
+  const d = dist(player, guard);
+  if (d < 4) guard.state = "chase";
+  if (d > 6) guard.state = "patrol";
+
+  let target = guard.state === "chase"
+    ? player
+    : patrolPath[guard.patrolIndex];
+
+  if (guard.state === "patrol" && dist(guard, target) < 0.3) {
+    guard.patrolIndex = (guard.patrolIndex + 1) % patrolPath.length;
+    target = patrolPath[guard.patrolIndex];
+  }
+
+  const angle = Math.atan2(target.y - guard.y, target.x - guard.x);
+  const speed = guard.state === "chase" ? 0.03 : 0.02;
+
+  let gx = guard.x + Math.cos(angle) * speed;
+  let gy = guard.y + Math.sin(angle) * speed;
+
+  if (!isWall(gx, gy)) {
+    guard.x = gx;
+    guard.y = gy;
+  } else {
+    if (!isWall(gx, guard.y)) guard.x = gx;
+    else if (!isWall(guard.x, gy)) guard.y = gy;
+  }
+
+  if (d < 0.4 && !dead) {
+    dead = true;
+    parent.postMessage({ type: "DEATH" }, "*");
+  }
+
+  if (player.hasKey && dist(player, exit) < 0.6 && !won) {
+    won = true;
+    parent.postMessage({ type: "WIN" }, "*");
+  }
+}
+
+/* ================= RENDER ================= */
+function draw3D() {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,800,500);
+
+  const FOV = Math.PI / 3;
+
+  for (let i = 0; i < 200; i++) {
+    const rayAngle = player.angle - FOV/2 + (i/200)*FOV;
+    let distRay = 0;
+
+    while (distRay < 20) {
+      distRay += 0.05;
+      const rx = player.x + Math.cos(rayAngle)*distRay;
+      const ry = player.y + Math.sin(rayAngle)*distRay;
+      if (isWall(rx,ry)) break;
+    }
+
+    const h = 500 / (distRay * Math.cos(rayAngle - player.angle));
+    ctx.fillStyle = `rgb(${150-distRay*8},${150-distRay*8},${150-distRay*8})`;
+    ctx.fillRect(i*4, 250-h/2, 4, h);
+  }
+
+  if (key.visible && !key.taken) {
+    const dx = key.x - player.x;
+    const dy = key.y - player.y;
+    const a = Math.atan2(dy, dx) - player.angle;
+
+    if (Math.abs(a) < FOV/2) {
+      const sx = 400 + Math.tan(a) * 400;
+      const size = 40 / dist(player, key);
+      ctx.fillStyle = "gold";
+      ctx.fillRect(sx-size/2, 250-size/2, size, size);
+    }
+  }
+}
+
+function drawMinimap() {
+  const scale = 12;
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
+  ctx.fillRect(10,10,map[0].length*scale+10,map.length*scale+10);
+
+  for (let y=0;y<map.length;y++) {
+    for (let x=0;x<map[y].length;x++) {
+      if (map[y][x] === 1) {
+        ctx.fillStyle = "#555";
+        ctx.fillRect(15+x*scale,15+y*scale,scale-2,scale-2);
+      }
+    }
+  }
+
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(15+player.x*scale,15+player.y*scale,4,4);
+
+  if (dist(player, guard) < 4) {
+    ctx.fillStyle = "red";
+    ctx.fillRect(15+guard.x*scale,15+guard.y*scale,4,4);
+  }
+
+  if (player.hasKey) {
+    ctx.fillStyle = "lime";
+    ctx.fillRect(15+exit.x*scale,15+exit.y*scale,6,6);
+  }
+}
+
+/* ================= LOOP ================= */
+function loop() {
+  update();
+  draw3D();
+  drawMinimap();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
