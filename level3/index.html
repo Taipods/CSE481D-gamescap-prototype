@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Red Light Green Light – Clear Signal</title>
+<style>
+html,body{
+  margin:0;
+  background:black;
+  overflow:hidden;
+  font-family:monospace;
+}
+#sign{
+  position:absolute;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:360px;
+  height:90px;
+  border:4px solid white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:42px;
+  letter-spacing:6px;
+  font-weight:bold;
+}
+#hint{
+  position:absolute;
+  top:120px;
+  width:100%;
+  text-align:center;
+  font-size:14px;
+  color:#aaa;
+}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="sign">GREEN LIGHT</div>
+<div id="hint">MOVE ONLY DURING GREEN</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+const sign = document.getElementById("sign");
+
+const keys = {};
+addEventListener("keydown", e => keys[e.key] = true);
+addEventListener("keyup", e => keys[e.key] = false);
+
+const KILL_VELOCITY = 0.15;
+
+let light = "GREEN";
+let lastSwitch = 0;
+let dead = false;
+let deathRay = null;
+
+const player = {
+  x: 80,
+  y: canvas.height / 2,
+  vx: 0,
+  vy: 0,
+  r: 10,
+  speed: 2
+};
+
+const shooters = [
+  { x: canvas.width / 2, y: 80 },
+  { x: canvas.width / 2, y: canvas.height - 80 },
+  { x: canvas.width - 120, y: canvas.height / 2 }
+];
+
+const keyItem = {
+  x: canvas.width - 260,
+  y: canvas.height / 2 - 120,
+  r: 10,
+  taken: false
+};
+
+const door = {
+  x: canvas.width - 90,
+  y: canvas.height / 2,
+  w: 40,
+  h: 90
+};
+
+function updateSign(){
+  if(light === "GREEN"){
+    sign.style.background = "lime";
+    sign.style.color = "black";
+    sign.textContent = "GREEN LIGHT";
+  }else{
+    sign.style.background = "red";
+    sign.style.color = "white";
+    sign.textContent = "RED LIGHT";
+  }
+}
+
+function switchLight(time){
+  if(time - lastSwitch > 3000){
+    light = light === "GREEN" ? "RED" : "GREEN";
+    lastSwitch = time;
+    updateSign();
+  }
+}
+
+function updatePlayer(){
+  player.vx = 0;
+  player.vy = 0;
+
+  if(keys.w || keys.ArrowUp) player.vy -= player.speed;
+  if(keys.s || keys.ArrowDown) player.vy += player.speed;
+  if(keys.a || keys.ArrowLeft) player.vx -= player.speed;
+  if(keys.d || keys.ArrowRight) player.vx += player.speed;
+
+  player.x += player.vx;
+  player.y += player.vy;
+}
+
+function playerSpeed(){
+  return Math.hypot(player.vx, player.vy);
+}
+
+function kill(shooter){
+  dead = true;
+  deathRay = shooter;
+  parent.postMessage({ type: "DEATH" }, "*");
+}
+
+function reset(){
+  player.x = 80;
+  player.y = canvas.height / 2;
+  keyItem.taken = false;
+  dead = false;
+  deathRay = null;
+  light = "GREEN";
+  updateSign();
+}
+
+function rectCircleCollide(cx, cy, r, rx, ry, rw, rh){
+  const testX = Math.max(rx, Math.min(cx, rx + rw));
+  const testY = Math.max(ry - rh/2, Math.min(cy, ry + rh/2));
+  const dx = cx - testX;
+  const dy = cy - testY;
+  return dx*dx + dy*dy <= r*r;
+}
+
+function update(time){
+  if(dead) return;
+
+  switchLight(time);
+  updatePlayer();
+
+  if(light === "RED" && playerSpeed() > KILL_VELOCITY){
+    const shooter = shooters.reduce((a,b)=>{
+      return Math.hypot(player.x-a.x,player.y-a.y) <
+             Math.hypot(player.x-b.x,player.y-b.y) ? a : b;
+    });
+    kill(shooter);
+    return;
+  }
+
+  if(!keyItem.taken &&
+     Math.hypot(player.x-keyItem.x,player.y-keyItem.y)<18){
+    keyItem.taken = true;
+  }
+
+  if(keyItem.taken &&
+     rectCircleCollide(
+       player.x, player.y, player.r,
+       door.x, door.y, door.w, door.h
+     )){
+    sign.textContent = "ESCAPED";
+    sign.style.background = "black";
+    sign.style.color = "lime";
+    cancelAnimationFrame(loop);
+    parent.postMessage({ type: "WIN" }, "*");
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#050505";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Shooters
+  ctx.fillStyle="#666";
+  shooters.forEach(s=>{
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,16,0,6.28);
+    ctx.fill();
+  });
+
+  // Laser
+  if(deathRay){
+    ctx.strokeStyle="red";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(deathRay.x,deathRay.y);
+    ctx.lineTo(player.x,player.y);
+    ctx.stroke();
+  }
+
+  // Player
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,6.28);
+  ctx.fill();
+
+  // Key
+  if(!keyItem.taken){
+    ctx.fillStyle="gold";
+    ctx.beginPath();
+    ctx.arc(keyItem.x,keyItem.y,keyItem.r,0,6.28);
+    ctx.fill();
+  }
+
+  // Door
+  ctx.fillStyle=keyItem.taken?"lime":"#333";
+  ctx.fillRect(door.x,door.y-door.h/2,door.w,door.h);
+}
+
+function loop(time){
+  update(time);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+updateSign();
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
