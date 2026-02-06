@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Extinction Protocol: Economy Update</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #ccc;
+            font-family: 'Segoe UI', Consolas, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
+            user-select: none;
+        }
+        #game-wrapper {
+            position: relative;
+            box-shadow: 0 0 60px rgba(0,0,0,1);
+            border: 2px solid #333;
+            background: #000;
+        }
+        canvas {
+            display: block;
+            background-color: #111;
+            cursor: crosshair;
+        }
+        
+        /* UI LAYERS */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .hud-stat-box {
+            position: absolute; top: 20px; left: 20px;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .bar-wrap {
+            width: 220px; height: 14px; background: #222; border: 1px solid #444; position: relative;
+        }
+        .bar-fill { height: 100%; transition: width 0.1s; }
+        .bar-txt {
+            position: absolute; top: -2px; left: 5px; font-size: 11px; font-weight: bold; text-shadow: 1px 1px 0 #000; z-index: 2; color: #fff;
+        }
+
+        /* NEW DASHBOARD (Below Canvas) */
+        #dashboard {
+            width: 900px;
+            height: 80px;
+            background: #1a1a1a;
+            border-top: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* ABILITY HUD (Moved here) */
+        #ability-widget {
+            display: flex; align-items: center; gap: 15px;
+            background: #111; padding: 10px 30px; border-radius: 10px; border: 1px solid #444;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #ability-icon {
+            width: 50px; height: 50px; border-radius: 5px; background: #222;
+            display: flex; align-items: center; justify-content: center; font-size: 28px;
+            border: 2px solid #666; position: relative; overflow: hidden;
+        }
+        #ability-cd-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 0%;
+            background: rgba(0,0,0,0.8); transition: height 0.1s;
+        }
+        
+        /* Weapon Info in Dashboard */
+        #dashboard-wep {
+            position: absolute; right: 20px; text-align: right;
+        }
+
+        /* SCREENS */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); backdrop-filter: blur(2px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10;
+        }
+        .hidden { display: none !important; }
+        
+        button {
+            background: #1a1a1a; border: 1px solid #444; color: #ddd;
+            padding: 8px 12px; margin: 4px; font-size: 12px; cursor: pointer;
+            transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+        }
+        button:hover { background: #e6b800; color: #000; border-color: #fff; }
+        button:disabled { opacity: 0.3; pointer-events: none; }
+        
+        .dino-select { display: flex; gap: 20px; margin-top: 30px; }
+        .dino-card {
+            background: #0f0f0f; border: 1px solid #333; padding: 25px; width: 180px;
+            cursor: pointer; transition: 0.2s; text-align: center;
+        }
+        .dino-card:hover { border-color: #e6b800; background: #1a1a1a; transform: translateY(-5px); }
+
+        /* HUB LAYOUT */
+        .hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 750px; }
+        .hub-panel { background: #111; border: 1px solid #333; padding: 20px; }
+        .skill-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; background: #1a1a1a; padding: 5px 10px; }
+        
+        /* MISSION REPORT */
+        .mission-report {
+            display: flex; gap: 20px; margin-bottom: 20px; background: #1a1a1a; padding: 15px; border: 1px solid #4f4; width: 720px; justify-content: space-around;
+        }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 24px; font-weight: bold; color: #fff; }
+        .stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+
+        #interact-prompt {
+            position: absolute; pointer-events: none;
+            background: #000; color: #fff; padding: 4px 8px; border: 1px solid #fff;
+            font-size: 11px; font-weight: bold; transform: translate(-50%, -130%); display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div style="position:relative;">
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+        <div id="interact-prompt">PRESS [E] TO EQUIP</div>
+
+        <div id="ui-layer">
+            <div class="hud-stat-box">
+                <div class="bar-wrap">
+                    <div id="bar-hp" class="bar-fill" style="background:#d33; width:100%;"></div>
+                    <div class="bar-txt">HP: <span id="txt-hp">100</span> <span id="txt-regen" style="color:#4f4; font-size:9px;"></span></div>
+                </div>
+                <div class="bar-wrap" style="border-color:#4af;">
+                    <div id="bar-shield" class="bar-fill" style="background:#4af; width:0%;"></div>
+                    <div class="bar-txt">ARMOR: <span id="txt-shield">0</span></div>
+                </div>
+                <div style="font-size:12px; margin-top:5px; display:flex; gap:15px;">
+                    <span style="color:#a0f">LVL <span id="txt-lvl">1</span></span>
+                    <span style="color:#eb0">SCRAP: <span id="txt-scrap">0</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-select" class="screen">
+            <h1 style="color:#e6b800; font-size:48px; margin:0;">EXTINCTION</h1>
+            <h2 style="color:#fff; font-size:24px; margin-top:0;">PROTOCOL</h2>
+            <div class="dino-select">
+                <div class="dino-card" onclick="startGame('rex')">
+                    <div style="font-size:40px;">🦖</div>
+                    <h3 style="color:#f44;">T-REX</h3>
+                    <p style="font-size:11px; color:#aaa;">Heavy Assault</p>
+                    <div style="font-size:12px; margin-top:10px; color:#ddd;">High HP, Slow<br>Ability: Area Nuke</div>
+                </div>
+                <div class="dino-card" onclick="startGame('raptor')">
+                    <div style="font-size:40px;">⚡</div>
+                    <h3 style="color:#4f4;">RAPTOR</h3>
+                    <p style="font-size:11px; color:#aaa;">Striker</p>
+                    <div style="font-size:12px; margin-top:10px; color:#ddd;">Low HP, Very Fast<br>Ability: Dash Attack</div>
+                </div>
+                <div class="dino-card" onclick="startGame('trike')">
+                    <div style="font-size:40px;">🛡️</div>
+                    <h3 style="color:#4af;">TRICERATOPS</h3>
+                    <p style="font-size:11px; color:#aaa;">Tank</p>
+                    <div style="font-size:12px; margin-top:10px; color:#ddd;">Max HP, Medium<br>Ability: Reflect Shield</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-hub" class="screen hidden">
+            <h2 style="color:#4f4; margin-bottom:5px;">SECTOR CLEARED</h2>
+            
+            <div class="mission-report">
+                <div class="stat-item">
+                    <div class="stat-val" id="report-kills" style="color:#f44">0</div>
+                    <div class="stat-label">Hostiles Erased</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="report-dmg" style="color:#d33">0</div>
+                    <div class="stat-label">Damage Taken</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="report-scrap" style="color:#eb0">0</div>
+                    <div class="stat-label">Scrap Recovered</div>
+                </div>
+            </div>
+
+            <div class="hub-grid">
+                <div class="hub-panel">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:10px; margin-bottom:15px;">
+                        <h3 style="color:#e6b800; margin:0;">GENETICS</h3>
+                        <span style="color:#a0f; font-weight:bold;">SP: <span id="hub-sp">0</span></span>
+                    </div>
+                    
+                    <div class="skill-row">
+                        <div>
+                            <div style="color:#fff; font-size:14px;">Regeneration</div>
+                            <div style="color:#666; font-size:10px;">Passive HP Restore</div>
+                        </div>
+                        <button onclick="buySkill('regen')">Mutate (1 SP)</button>
+                    </div>
+                    <div class="skill-row">
+                        <div>
+                            <div style="color:#fff; font-size:14px;">Reflexes</div>
+                            <div style="color:#666; font-size:10px;">Cooldown Speed</div>
+                        </div>
+                        <button onclick="buySkill('cd')">Mutate (1 SP)</button>
+                    </div>
+                    <div class="skill-row">
+                        <div>
+                            <div style="color:#fff; font-size:14px;">Potency</div>
+                            <div style="color:#666; font-size:10px;">Dmg / Reflect</div>
+                        </div>
+                        <button onclick="buySkill('potency')">Mutate (1 SP)</button>
+                    </div>
+                    <div class="skill-row">
+                        <div>
+                            <div style="color:#fff; font-size:14px;">Utility</div>
+                            <div style="color:#666; font-size:10px;">Radius / Duration</div>
+                        </div>
+                        <button onclick="buySkill('utility')">Mutate (1 SP)</button>
+                    </div>
+                </div>
+
+                <div class="hub-panel">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:10px; margin-bottom:15px;">
+                        <h3 style="color:#e6b800; margin:0;">ARMORY</h3>
+                        <span style="color:#eb0; font-weight:bold;">SCRAP: <span id="hub-scrap">0</span></span>
+                    </div>
+                    
+                    <button onclick="upgradeWeapon()" style="width:100%; margin:5px 0;">
+                        Upgrade Weapon Tier (<span id="cost-wep">100</span> Scrap)
+                    </button>
+                    
+                    <button onclick="buySpeed()" style="width:100%; margin:5px 0; border-color: #4f4;">
+                        Hydraulics (Move Spd +5%) <br><span style="font-size:10px; color:#aaa;">Cost: 60 Scrap</span>
+                    </button>
+
+                    <button onclick="buyShield()" style="width:100%; margin:5px 0; border-color:#4af;">
+                        Buy Armor Plate (40 Scrap)
+                    </button>
+                    
+                    <button onclick="buyHeal()" style="width:100%; margin:5px 0; border-color:#d33;">
+                        Heal 50% (30 Scrap)
+                    </button>
+                </div>
+            </div>
+            <button onclick="nextLevel()" style="margin-top:30px; width:250px; border-color:#4f4; background:#111; padding: 15px;">DEPLOY TO NEXT SECTOR</button>
+        </div>
+
+        <div id="screen-over" class="screen hidden">
+            <h1 style="color:#f44; font-size:60px; margin-bottom:10px;">K.I.A.</h1>
+            <p>Sectors Survived: <span id="final-score">0</span></p>
+            <button onclick="location.reload()" style="font-size:18px; padding:15px 40px;">REBOOT</button>
+        </div>
+    </div>
+
+    <div id="dashboard">
+        <div id="ability-widget">
+            <div style="text-align:right;">
+                <div id="ability-name" style="font-weight:bold; color:#fff; font-size:16px;">ABILITY</div>
+                <div id="ability-status" style="font-size:11px; color:#4f4;">READY</div>
+            </div>
+            <div id="ability-icon">
+                <span id="ability-emoji">🦖</span>
+                <div id="ability-cd-overlay"></div>
+            </div>
+            <div style="font-size:11px; color:#888; font-weight:bold;">SPACEBAR</div>
+        </div>
+
+        <div id="dashboard-wep">
+            <div style="color:#888; font-size:10px; text-transform:uppercase;">Primary Weapon</div>
+            <div id="wep-name" style="font-size:18px; font-weight:bold; color:#fff;">Pistol</div>
+            <div id="wep-tier" style="font-size:12px; color:#aaa;">COMMON</div>
+        </div>
+    </div>
+</div>
+
+<script>
+/** CORE ENGINE */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const ui = {
+    screens: { select: document.getElementById('screen-select'), hub: document.getElementById('screen-hub'), over: document.getElementById('screen-over') },
+    bars: { hp: document.getElementById('bar-hp'), shield: document.getElementById('bar-shield') },
+    txt: { hp: document.getElementById('txt-hp'), regen: document.getElementById('txt-regen'), shield: document.getElementById('txt-shield'), lvl: document.getElementById('txt-lvl'), scrap: document.getElementById('txt-scrap') },
+    ab: { name: document.getElementById('ability-name'), status: document.getElementById('ability-status'), cd: document.getElementById('ability-cd-overlay'), icon: document.getElementById('ability-emoji') },
+    wep: { name: document.getElementById('wep-name'), tier: document.getElementById('wep-tier') },
+    hub: { sp: document.getElementById('hub-sp'), scrap: document.getElementById('hub-scrap'), wep: document.getElementById('hub-wep-name'), cost: document.getElementById('cost-wep') },
+    report: { kills: document.getElementById('report-kills'), dmg: document.getElementById('report-dmg'), scrap: document.getElementById('report-scrap') },
+    prompt: document.getElementById('interact-prompt')
+};
+
+const keys = { w:0, a:0, s:0, d:0, e:0 };
+const mouse = { x:0, y:0, down:false };
+window.onkeydown = e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; if(e.code==='Space') player.useAbility(); if(e.key.toLowerCase()==='e') attemptInteract(); };
+window.onkeyup = e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; };
+canvas.onmousemove = e => { const r=canvas.getBoundingClientRect(); mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top; };
+canvas.onmousedown = () => { mouse.down=true; if(gameState==='PLAYING') player.trigger=true; };
+canvas.onmouseup = () => { mouse.down=false; if(gameState==='PLAYING') player.trigger=false; };
+
+const RARITY = [
+    { name:'Common', color:'#ccc', mult:1.0 },
+    { name:'Rare', color:'#4af', mult:1.3 },
+    { name:'Epic', color:'#a0f', mult:1.6 },
+    { name:'Legendary', color:'#fa0', mult:2.0 }
+];
+
+class Player {
+    constructor(type) {
+        this.type = type;
+        this.x = canvas.width/2; this.y = canvas.height/2;
+        this.r = 18; this.angle = 0;
+        
+        this.maxHp = 100; this.hp = 100; this.shield = 0;
+        this.scrap = 0; this.lvl = 1; this.xp = 0; this.xpNext = 100; this.sp = 0;
+        this.baseSpeed = 3; 
+        
+        this.moveSpeedBonus = 0;
+        this.stats = { cd: 0, potency: 0, utility: 0, regen: 0 }; 
+        this.abCD = 0; this.abMax = 180; this.abActive = 0;
+        this.regenTimer = 0;
+        
+        this.weapon = { name:'Pistol', dmg:12, rate:25, spread:0.1, type:'semi', rarity:0, color:'#ccc' };
+        this.wepTimer = 0; this.trigger = false;
+
+        if(type === 'rex') { 
+            this.maxHp=160; this.hp=160; 
+            this.baseSpeed=3.2; 
+            this.color='#f44'; this.abMaxBase=300; 
+            ui.ab.icon.innerText="🦖"; ui.ab.name.innerText="BITE"; 
+        }
+        if(type === 'raptor') { 
+            this.maxHp=85; this.hp=85; 
+            this.baseSpeed=4.5; 
+            this.color='#4f4'; this.abMaxBase=180; 
+            ui.ab.icon.innerText="⚡"; ui.ab.name.innerText="DASH"; 
+        }
+        if(type === 'trike') { 
+            this.maxHp=200; this.hp=200; 
+            this.baseSpeed=2.8; 
+            this.color='#4af'; this.abMaxBase=360; 
+            ui.ab.icon.innerText="🛡️"; ui.ab.name.innerText="PHALANX"; 
+        }
+    }
+
+    update() {
+        if(this.abCD > 0) this.abCD--;
+        if(this.abActive > 0) this.abActive--;
+        if(this.wepTimer > 0) this.wepTimer--;
+
+        if(this.stats.regen > 0 && this.hp < this.maxHp) {
+            this.regenTimer++;
+            if(this.regenTimer >= 60) {
+                const healAmt = this.stats.regen;
+                this.hp = Math.min(this.maxHp, this.hp + healAmt);
+                createFloatingText(this.x, this.y - 30, `+${healAmt}`, '#4f4');
+                this.regenTimer = 0;
+            }
+        }
+
+        let dx=0, dy=0;
+        if(keys.w) dy=-1; if(keys.s) dy=1; if(keys.a) dx=-1; if(keys.d) dx=1;
+        if(dx||dy) {
+            let totalSpeed = (this.baseSpeed * (1 + this.moveSpeedBonus));
+            if(this.type==='raptor' && this.abActive>0) totalSpeed *= 2.5;
+            let d = Math.sqrt(dx*dx+dy*dy);
+            this.x += (dx/d)*totalSpeed; this.y += (dy/d)*totalSpeed;
+        }
+
+        this.x = Math.max(20, Math.min(canvas.width-20, this.x));
+        this.y = Math.max(20, Math.min(canvas.height-20, this.y));
+        walls.forEach(w => resolveRectCol(this, w));
+
+        this.angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
+        if(this.trigger && this.wepTimer <= 0) this.shoot();
+    }
+
+    shoot() {
+        this.wepTimer = this.weapon.rate;
+        let c = this.weapon.type==='shotgun' ? 5 : 1;
+        for(let i=0; i<c; i++) {
+            let s = (Math.random()-0.5)*this.weapon.spread;
+            bullets.push({ x:this.x, y:this.y, vx:Math.cos(this.angle+s)*12, vy:Math.sin(this.angle+s)*12, dmg:this.weapon.dmg, color:this.weapon.color, life:60 });
+        }
+    }
+
+    useAbility() {
+        if(this.abCD > 0) return;
+        let cdReduc = this.stats.cd * 20; 
+        this.abCD = Math.max(60, this.abMaxBase - cdReduc);
+        
+        if(this.type === 'rex') {
+            let r = 120 + (this.stats.utility * 15);
+            let dmg = 100 + (this.stats.potency * 40);
+            visuals.push({x:this.x, y:this.y, r:r, color:'rgba(255,50,50,0.4)', life:15});
+            enemies.forEach(e => { if(Math.hypot(e.x-this.x, e.y-this.y) < r) e.hit(dmg); });
+        } 
+        else if(this.type === 'raptor') {
+            this.abActive = 45 + (this.stats.utility * 10);
+        } 
+        else if(this.type === 'trike') {
+            this.abActive = 180 + (this.stats.utility * 30);
+        }
+    }
+    
+    draw() {
+        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+        if(this.type==='trike' && this.abActive>0) {
+            ctx.strokeStyle='#4af'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2); ctx.stroke();
+        }
+        if(this.type==='raptor' && this.abActive>0) {
+            ctx.strokeStyle='#ff0'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-25,-10); ctx.lineTo(10,0); ctx.lineTo(-25,10); ctx.stroke();
+        }
+        ctx.fillStyle = this.color;
+        if(this.type==='trike') { ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-15,20); ctx.lineTo(-15,-20); ctx.fill(); }
+        else ctx.fillRect(-16,-16,32,32);
+        ctx.fillStyle = this.weapon.color; ctx.fillRect(10,-4,24,8);
+        ctx.restore();
+    }
+}
+
+class Enemy {
+    constructor() {
+        let safe=false;
+        while(!safe) {
+            this.x=Math.random()*canvas.width; this.y=Math.random()*canvas.height;
+            if(Math.hypot(this.x-player.x, this.y-player.y) > 350) safe=true;
+            for(let w of walls) { if(rectIntersectCircle({x:this.x, y:this.y, r:20}, w)) safe=false; }
+        }
+        
+        const rand = Math.random();
+        if(rand < 0.2) this.shape = 'square';
+        else if (rand < 0.5) this.shape = 'triangle';
+        else this.shape = 'circle';
+
+        const speedLevelCap = Math.min(level, 8);
+        const scale = (level * 1.5);
+
+        if(this.shape === 'square') {
+            this.hp = 60 + scale*2; this.max = this.hp; 
+            this.speed = 0.7 + (speedLevelCap * 0.08); 
+            this.dmg = 12 + scale; this.r = 20; this.color = '#d66';
+        } else if (this.shape === 'triangle') {
+            this.hp = 15 + scale; this.max = this.hp; 
+            this.speed = 2.8 + (speedLevelCap * 0.15); 
+            this.dmg = 10 + scale; this.r = 14; this.color = '#da4';
+        } else {
+            this.hp = 30 + scale; this.max = this.hp; 
+            this.speed = 1.5 + (speedLevelCap * 0.1); 
+            this.dmg = 6 + scale; this.r = 16; this.color = '#a33';
+        }
+    }
+
+    update() {
+        let a = Math.atan2(player.y - this.y, player.x - this.x);
+        this.vx = Math.cos(a) * this.speed;
+        this.vy = Math.sin(a) * this.speed;
+        this.x += this.vx; this.y += this.vy;
+
+        walls.forEach(w => resolveRectCol(this, w));
+        
+        let dist = Math.hypot(player.x - this.x, player.y - this.y);
+        if(dist < this.r + player.r) {
+            if(player.type === 'trike' && player.abActive > 0) {
+                let reflect = 15 + (player.stats.potency * 10);
+                this.hit(reflect);
+                this.x -= this.vx * 20; this.y -= this.vy * 20; 
+                visuals.push({x:(this.x+player.x)/2, y:(this.y+player.y)/2, r:10, color:'#4af', life:5});
+                return;
+            } 
+            if(player.type === 'raptor' && player.abActive > 0) {
+                let dashDmg = 50 + (player.stats.potency * 25);
+                this.hit(dashDmg);
+                this.x -= this.vx * 30; this.y -= this.vy * 30; 
+                visuals.push({x:this.x, y:this.y, r:20, color:'#ff0', life:8});
+                return;
+            }
+            if(player.shield > 0) {
+                player.shield -= this.dmg;
+                if(player.shield < 0) { player.hp += player.shield; player.shield=0; }
+            } else {
+                player.hp -= (this.dmg * 0.1);
+                sessionStats.damageTaken += (this.dmg * 0.1); 
+            }
+        }
+    }
+
+    hit(dmg) {
+        this.hp -= dmg;
+        if(this.hp <= 0) {
+            enemiesKilled++;
+            sessionStats.kills++; 
+            // --- INCREASED SCRAP GAIN ---
+            let scrapAmt = (this.shape==='square'? 20 : 8);
+            player.scrap += scrapAmt;
+            sessionStats.scrap += scrapAmt; 
+            
+            player.xp += (this.shape==='square'?25:10);
+            if(player.xp >= player.xpNext) { player.lvl++; player.xp=0; player.sp++; player.xpNext = Math.floor(player.xpNext*1.2); }
+            if(Math.random()<0.2) dropLoot(this.x, this.y);
+            return true;
+        }
+        return false;
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        if(this.shape === 'square') ctx.fillRect(this.x-this.r, this.y-this.r, this.r*2, this.r*2);
+        else if (this.shape === 'triangle') { ctx.moveTo(this.x, this.y-this.r); ctx.lineTo(this.x+this.r, this.y+this.r); ctx.lineTo(this.x-this.r, this.y+this.r); ctx.fill(); }
+        else { ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
+        ctx.fillStyle = '#500'; ctx.fillRect(this.x-10, this.y-this.r-8, 20, 3);
+        ctx.fillStyle = '#0f0'; ctx.fillRect(this.x-10, this.y-this.r-8, 20*(this.hp/this.max), 3);
+    }
+}
+
+function resolveRectCol(c, r) {
+    let nx = Math.max(r.x, Math.min(c.x, r.x+r.w));
+    let ny = Math.max(r.y, Math.min(c.y, r.y+r.h));
+    let dx = c.x - nx, dy = c.y - ny;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < c.r && dist > 0) {
+        let pen = c.r - dist;
+        c.x += (dx/dist)*pen; c.y += (dy/dist)*pen;
+    }
+}
+function rectIntersectCircle(circle, rect) {
+    let distX = Math.abs(circle.x - rect.x - rect.w/2);
+    let distY = Math.abs(circle.y - rect.y - rect.h/2);
+    if (distX > (rect.w/2 + circle.r)) return false;
+    if (distY > (rect.h/2 + circle.r)) return false;
+    if (distX <= (rect.w/2)) return true; 
+    if (distY <= (rect.h/2)) return true;
+    let dx=distX-rect.w/2; let dy=distY-rect.h/2;
+    return (dx*dx+dy*dy<=(circle.r*circle.r));
+}
+function resolveEnemyPhysics() {
+    for(let i=0; i<enemies.length; i++) {
+        for(let j=i+1; j<enemies.length; j++) {
+            let e1 = enemies[i]; let e2 = enemies[j];
+            let dx = e1.x - e2.x; let dy = e1.y - e2.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            let minDist = e1.r + e2.r;
+            if(dist < minDist && dist > 0) {
+                let pen = (minDist - dist) / 2;
+                let nx = dx / dist; let ny = dy / dist;
+                e1.x += nx * pen; e1.y += ny * pen;
+                e2.x -= nx * pen; e2.y -= ny * pen;
+            }
+        }
+    }
+}
+
+let loot = [];
+function dropLoot(x, y) {
+    const types = ['Rifle','Shotgun','Sniper','SMG'];
+    const t = types[Math.floor(Math.random()*types.length)];
+    const r = Math.random()>0.85 ? 1 : 0; 
+    let d=10, sp=0.1, rt=20, type='auto';
+    if(t==='Sniper'){d=45; rt=60; sp=0.01; type='semi';}
+    if(t==='Shotgun'){d=9; rt=50; sp=0.4; type='shotgun';}
+    if(t==='SMG'){d=7; rt=6; sp=0.25; type='auto';}
+    let item = { name:t, type:type, rarity:r, dmg:Math.floor(d*RARITY[r].mult), rate:rt, spread:sp, color:RARITY[r].color };
+    loot.push({x, y, item});
+}
+function attemptInteract() {
+    for(let i=0; i<loot.length; i++) {
+        if(Math.hypot(player.x - loot[i].x, player.y - loot[i].y) < 40) {
+            player.weapon = loot[i].item; loot.splice(i,1); return;
+        }
+    }
+}
+
+let sessionStats = { kills:0, dmg:0, scrap:0 };
+let gameState = 'SELECT', level = 1, enemiesKilled=0, extraction={x:0,y:0,r:45,active:false}, enemies=[], bullets=[], visuals=[], walls=[], floatTexts=[];
+
+function startGame(t) { player = new Player(t); initLevel(); gameState='PLAYING'; ui.screens.select.classList.add('hidden'); loop(); }
+
+function initLevel() {
+    enemies=[]; bullets=[]; loot=[]; visuals=[]; walls=[]; extraction.active=false; enemiesKilled=0;
+    sessionStats = { kills:0, damageTaken:0, scrap:0 }; 
+    for(let i=0; i<6; i++) walls.push({ x:Math.random()*(canvas.width-100), y:Math.random()*(canvas.height-100), w:60+Math.random()*80, h:60+Math.random()*80 });
+}
+
+function spawnExtraction() {
+    extraction.active = true;
+    let safe = false; let attempts = 0;
+    while(!safe && attempts < 100) {
+        extraction.x = Math.random() * (canvas.width - 100) + 50;
+        extraction.y = Math.random() * (canvas.height - 100) + 50;
+        safe = true;
+        if(Math.hypot(extraction.x - player.x, extraction.y - player.y) < 300) safe = false;
+        for(let w of walls) { if(rectIntersectCircle({x:extraction.x, y:extraction.y, r:extraction.r + 20}, w)) { safe = false; break; } }
+        attempts++;
+    }
+    if(!safe) { extraction.x = 50; extraction.y = 50; }
+}
+
+function createFloatingText(x, y, text, color) {
+    floatTexts.push({x, y, text, color, life: 40});
+}
+
+function loop() {
+    if(gameState !== 'PLAYING') return;
+    ctx.fillStyle = '#111'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    if(!extraction.active && enemies.length < 5 + (level/2)) { if(Math.random() < 0.03) enemies.push(new Enemy()); }
+    if(enemiesKilled > 6 + level && !extraction.active) { spawnExtraction(); }
+
+    ctx.fillStyle = '#2a2a2a'; ctx.strokeStyle='#444';
+    walls.forEach(w => { ctx.fillRect(w.x,w.y,w.w,w.h); ctx.strokeRect(w.x,w.y,w.w,w.h); });
+    
+    ui.prompt.style.display = 'none';
+    loot.forEach(l => {
+        ctx.fillStyle = l.item.color; ctx.beginPath(); ctx.moveTo(l.x, l.y-10); ctx.lineTo(l.x+8, l.y+5); ctx.lineTo(l.x-8, l.y+5); ctx.fill();
+        ctx.shadowBlur=10; ctx.shadowColor=l.item.color; ctx.stroke(); ctx.shadowBlur=0;
+        if(Math.hypot(player.x-l.x, player.y-l.y) < 30) {
+            ui.prompt.style.display='block'; ui.prompt.style.left=(canvas.offsetLeft+l.x)+'px'; ui.prompt.style.top=(canvas.offsetTop+l.y-20)+'px';
+            ui.prompt.innerText=`[E] ${l.item.name}`; ui.prompt.style.borderColor=l.item.color;
+        }
+    });
+
+    if(extraction.active) {
+        ctx.strokeStyle='#4af'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(extraction.x, extraction.y, extraction.r, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle='rgba(68,170,255,0.1)'; ctx.fill();
+        if(Math.hypot(player.x-extraction.x, player.y-extraction.y) < extraction.r) { 
+            gameState='HUB'; 
+            ui.screens.hub.classList.remove('hidden'); 
+            updateHub(); 
+            return; 
+        }
+    }
+
+    player.update();
+    enemies.forEach(e => e.update());
+    resolveEnemyPhysics();
+
+    bullets = bullets.filter(b => {
+        b.x += b.vx; b.y += b.vy; b.life--;
+        ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
+        let hit = false;
+        walls.forEach(w => { if(b.x>w.x && b.x<w.x+w.w && b.y>w.y && b.y<w.y+w.h) hit=true; });
+        enemies.forEach(e => { if(!hit && Math.hypot(b.x-e.x, b.y-e.y) < e.r) { e.hit(b.dmg); hit=true; } });
+        return b.life > 0 && !hit;
+    });
+
+    enemies = enemies.filter(e => { e.draw(); return e.hp>0; });
+    player.draw();
+    visuals = visuals.filter(v => {
+        v.life--; ctx.fillStyle=v.color; ctx.beginPath(); ctx.arc(v.x, v.y, v.r, 0, Math.PI*2); ctx.fill(); return v.life>0;
+    });
+    
+    floatTexts = floatTexts.filter(t => {
+        t.life--; t.y -= 0.5;
+        ctx.fillStyle = t.color; ctx.font = "bold 12px Arial"; ctx.fillText(t.text, t.x, t.y);
+        return t.life > 0;
+    });
+
+    updateUI();
+    if(player.hp <= 0) { gameState='OVER'; ui.screens.over.classList.remove('hidden'); document.getElementById('final-score').innerText=level; }
+    else requestAnimationFrame(loop);
+}
+
+function updateUI() {
+    ui.bars.hp.style.width = Math.max(0, (player.hp/player.maxHp)*100) + '%';
+    ui.txt.hp.innerText = Math.floor(player.hp);
+    if(player.stats.regen > 0) ui.txt.regen.innerText = `+${player.stats.regen}/s`;
+    
+    ui.bars.shield.style.width = Math.min(100, player.shield) + '%';
+    ui.txt.shield.innerText = Math.floor(player.shield);
+    ui.txt.scrap.innerText = player.scrap; ui.txt.lvl.innerText = player.lvl;
+    
+    ui.wep.name.innerText = player.weapon.name; 
+    ui.wep.name.style.color = player.weapon.color;
+    ui.wep.tier.innerText = RARITY[player.weapon.rarity].name.toUpperCase();
+    
+    let cd = player.abCD > 0 ? (player.abCD/player.abMaxBase)*100 : 0;
+    ui.ab.cd.style.height = cd+'%'; 
+    ui.ab.status.innerText = cd>0 ? "COOLDOWN" : "READY";
+    ui.ab.status.style.color = cd>0 ? "#888" : "#4f4";
+}
+
+function updateHub() {
+    ui.hub.scrap.innerText = player.scrap; ui.hub.sp.innerText = player.sp;
+    ui.hub.wep.innerText = player.weapon.name; ui.hub.wep.style.color = player.weapon.color;
+    ui.hub.cost.innerText = (player.weapon.rarity+1)*100;
+    
+    ui.report.kills.innerText = sessionStats.kills;
+    ui.report.dmg.innerText = Math.floor(sessionStats.damageTaken || 0);
+    ui.report.scrap.innerText = sessionStats.scrap;
+}
+
+function upgradeWeapon() {
+    let c = (player.weapon.rarity+1)*100;
+    if(player.scrap >= c && player.weapon.rarity < 3) {
+        player.scrap -= c; player.weapon.rarity++; player.weapon.dmg=Math.floor(player.weapon.dmg*1.3);
+        player.weapon.color = RARITY[player.weapon.rarity].color; updateHub();
+    }
+}
+function buySkill(type) {
+    if(player.sp > 0) { player.sp--; player.stats[type]++; updateHub(); }
+}
+function buySpeed() {
+    if(player.scrap >= 60) {
+        player.scrap -= 60;
+        player.moveSpeedBonus += 0.05; 
+        updateHub();
+    }
+}
+function buyShield(){ if(player.scrap>=40){player.scrap-=40; player.shield+=25; updateHub();} }
+function buyHeal(){ if(player.scrap>=30){player.scrap-=30; player.hp=Math.min(player.maxHp, player.hp+(player.maxHp/2)); updateHub();} }
+function nextLevel(){ level++; ui.screens.hub.classList.add('hidden'); player.x=canvas.width/2; player.y=canvas.height/2; initLevel(); gameState='PLAYING'; loop(); }
+
+</script>
+</body>
+</html>

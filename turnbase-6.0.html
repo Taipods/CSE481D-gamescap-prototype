@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HexWar V6: Balanced Economy</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; user-select: none; color: white; }
+        canvas { display: block; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: gold; }
+        select, input[type=text] { background: #333; color: white; border: 1px solid #555; padding: 5px; width: 100%; }
+
+        /* UI LAYOUT */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        .panel { pointer-events: auto; background: rgba(15, 20, 25, 0.95); border: 1px solid #444; padding: 10px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
+
+        /* MAIN MENU */
+        #main-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 15, 0.98); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: auto;
+        }
+        h1 { font-size: 60px; color: gold; text-shadow: 0 0 20px orange; margin-bottom: 10px; }
+        .menu-section { margin: 15px; text-align: center; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 600px; }
+        
+        button { background: #333; color: white; border: 2px solid #555; padding: 10px 20px; font-size: 16px; cursor: pointer; transition: 0.2s; border-radius: 4px; }
+        button:hover { background: #555; border-color: white; }
+        button.active { background: gold; color: black; border-color: orange; font-weight: bold; }
+        
+        #start-btn { background: #2ecc71; border-color: #27ae60; font-size: 24px; padding: 15px 50px; margin-top: 20px; }
+        #create-btn { background: #9b59b6; border-color: #8e44ad; margin-top: 10px; }
+
+        /* CREATOR SCREEN */
+        #creator-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; z-index: 150; display: none; pointer-events: auto;
+            flex-direction: row; padding: 20px; box-sizing: border-box; gap: 20px;
+        }
+        #unit-list { width: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 10px; border-right: 1px solid #333; }
+        .list-item { background: #222; padding: 10px; border: 1px solid #444; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .list-item:hover { border-color: gold; }
+        .list-item.selected { background: #333; border-color: gold; }
+        
+        #editor-panel { flex: 1; display: flex; flex-direction: column; gap: 15px; max-width: 500px; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; }
+        .stat-val { width: 40px; text-align: right; color: gold; }
+        #cost-display { font-size: 30px; color: gold; text-align: center; margin: 20px 0; font-weight: bold; }
+
+        /* GAME UI */
+        #top-bar { align-self: center; margin-top: 10px; display: flex; gap: 30px; font-size: 18px; font-weight: bold; display: none; }
+        #bottom-bar { align-self: center; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; display: none; }
+        #unit-shop { display: flex; gap: 5px; max-width: 800px; overflow-x: auto; }
+        .unit-card { width: 60px; height: 80px; background: #222; border: 2px solid #444; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; position: relative; }
+        .unit-card:hover { border-color: gold; }
+        .unit-card.disabled { opacity: 0.3; pointer-events: none; }
+        #turn-btn { background: #e74c3c; border: none; height: 80px; font-weight: bold; }
+        #home-btn { position: absolute; top: 10px; right: 10px; background: #444; padding: 5px 10px; font-size: 12px; pointer-events: auto; display: none; }
+
+        /* TUTORIAL */
+        #tutorial-box {
+            position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 100, 200, 0.9); border: 2px solid #89cff0;
+            padding: 15px 25px; border-radius: 50px; text-align: center;
+            color: white; font-size: 16px; font-weight: bold;
+            display: none; animation: pulse 2s infinite; pointer-events: none; z-index: 50;
+        }
+
+        #tooltip { position: absolute; background: rgba(0,0,0,0.9); border: 1px solid #666; padding: 10px; display: none; pointer-events: none; z-index: 60; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(137, 207, 240, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(137, 207, 240, 0); } 100% { box-shadow: 0 0 0 0 rgba(137, 207, 240, 0); } }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu">
+        <h1>HEXWAR V6</h1>
+        
+        <div class="menu-section">
+            <h3>SELECT FACTION</h3>
+            <div class="btn-group" id="faction-select">
+                <button onclick="menu.selectFaction('IMPERIUM', this)" class="active">IMPERIUM</button>
+                <button onclick="menu.selectFaction('CYBERNET', this)">CYBERNET</button>
+                <button onclick="menu.selectFaction('XENO', this)">XENO</button>
+                <button onclick="menu.selectFaction('CUSTOM', this)" id="custom-faction-btn" style="border-color:gold; color:gold">CUSTOM</button>
+            </div>
+            <button id="create-btn" onclick="creator.open()">🛠️ EDIT CUSTOM DECK</button>
+        </div>
+
+        <div class="menu-section">
+            <h3>SELECT LEVEL</h3>
+            <p style="font-size:12px; color:#aaa;">(Select Level 1 for Tutorial)</p>
+            <div class="btn-group" id="level-select"></div>
+        </div>
+
+        <button id="start-btn" onclick="menu.startGame()">DEPLOY ARMY</button>
+    </div>
+
+    <div id="creator-screen">
+        <div id="unit-list">
+            <h3>Your Army</h3>
+            </div>
+        <div id="editor-panel">
+            <h2>Unit Editor</h2>
+            
+            <div class="stat-row">
+                <label>Name</label>
+                <input type="text" id="edit-name" maxlength="10">
+            </div>
+            
+            <div class="stat-row">
+                <label>Icon</label>
+                <select id="edit-icon">
+                    <option>🗡️</option><option>🛡️</option><option>🏹</option><option>🐎</option>
+                    <option>🧙‍♂️</option><option>🐲</option><option>🤖</option><option>🚜</option>
+                    <option>💀</option><option>👻</option><option>💣</option><option>👑</option>
+                    <option>🐺</option><option>🦅</option><option>🧛</option><option>👽</option>
+                </select>
+            </div>
+
+            <hr style="width:100%; border-color:#333">
+
+            <div class="stat-row">
+                <label>Health (HP)</label>
+                <input type="range" id="edit-hp" min="10" max="500" step="10" oninput="creator.updateCost()">
+                <span id="val-hp" class="stat-val">100</span>
+            </div>
+
+            <div class="stat-row">
+                <label>Damage (DMG)</label>
+                <input type="range" id="edit-dmg" min="1" max="100" step="1" oninput="creator.updateCost()">
+                <span id="val-dmg" class="stat-val">10</span>
+            </div>
+
+            <div class="stat-row">
+                <label>Range</label>
+                <input type="range" id="edit-rng" min="1" max="8" step="1" oninput="creator.updateCost()">
+                <span id="val-rng" class="stat-val">1</span>
+            </div>
+
+            <div class="stat-row">
+                <label>Move Speed</label>
+                <input type="range" id="edit-mov" min="1" max="6" step="1" oninput="creator.updateCost()">
+                <span id="val-mov" class="stat-val">2</span>
+            </div>
+
+            <div id="cost-display">COST: 50</div>
+            
+            <div style="display:flex; gap:10px;">
+                <button onclick="creator.saveCurrent()" style="flex:1; background:gold; color:black;">SAVE UNIT</button>
+                <button onclick="creator.close()" style="flex:1;">BACK TO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <button id="home-btn" onclick="location.reload()">EXIT TO MENU</button>
+        <div id="top-bar" class="panel">
+            <div>Lvl: <span id="lvl-txt">1</span></div>
+            <div>Turn: <span id="turn-txt">1</span></div>
+            <div style="color:gold">Gold: <span id="res-txt">100</span></div>
+        </div>
+        <div id="tutorial-box">Select a Unit to begin.</div>
+        <div id="bottom-bar">
+            <div id="unit-shop" class="panel"></div>
+            <button id="turn-btn" class="panel" onclick="game.endTurn()">END TURN</button>
+        </div>
+    </div>
+    
+    <div id="tooltip"></div>
+    <canvas id="canvas"></canvas>
+
+<script>
+/** * CONFIGURATION & DATA 
+ */
+const HEX_SIZE = 38;
+
+// Initial Factions
+const FACTIONS = {
+    IMPERIUM: {
+        color: '#3498db',
+        units: [
+            { id: 'i1', name: 'Squire', cost: 50, hp: 40, dmg: 10, range: 1, move: 3, vision: 3, icon: '🗡️' },
+            { id: 'i2', name: 'Archer', cost: 80, hp: 25, dmg: 12, range: 3, move: 2, vision: 5, icon: '🏹' },
+            { id: 'i3', name: 'Knight', cost: 150, hp: 80, dmg: 20, range: 1, move: 2, vision: 3, icon: '🛡️' },
+            { id: 'i4', name: 'Lancer', cost: 120, hp: 50, dmg: 25, range: 2, move: 4, vision: 4, icon: '🐎' },
+            { id: 'i5', name: 'Cleric', cost: 100, hp: 30, dmg: -15, range: 2, move: 2, vision: 3, icon: '✨' },
+            { id: 'i6', name: 'Mage',   cost: 180, hp: 35, dmg: 35, range: 4, move: 2, vision: 4, icon: '🔮' },
+            { id: 'i7', name: 'Catapult', cost: 250, hp: 50, dmg: 50, range: 6, move: 1, vision: 4, icon: '☄️' },
+            { id: 'i8', name: 'Assassin', cost: 160, hp: 40, dmg: 45, range: 1, move: 5, vision: 5, icon: '🥷' },
+            { id: 'i9', name: 'Banner', cost: 200, hp: 100, dmg: 10, range: 1, move: 2, vision: 4, icon: '🚩' },
+            { id: 'i10', name: 'King', cost: 500, hp: 300, dmg: 70, range: 1, move: 2, vision: 4, icon: '👑' }
+        ]
+    },
+    CYBERNET: {
+        color: '#e74c3c',
+        units: [
+            { id: 'c1', name: 'Bot', cost: 40, hp: 30, dmg: 8, range: 2, move: 3, vision: 4, icon: '🤖' },
+            { id: 'c2', name: 'Sniper', cost: 110, hp: 20, dmg: 30, range: 6, move: 1, vision: 7, icon: '🔭' },
+            { id: 'c3', name: 'Tank', cost: 220, hp: 120, dmg: 25, range: 2, move: 1, vision: 3, icon: '🚜' },
+            { id: 'c4', name: 'Drone', cost: 60, hp: 20, dmg: 10, range: 3, move: 6, vision: 6, icon: '🚁' },
+            { id: 'c5', name: 'Mech', cost: 260, hp: 150, dmg: 40, range: 1, move: 2, vision: 3, icon: '🦾' },
+            { id: 'c6', name: 'Turret', cost: 150, hp: 80, dmg: 20, range: 5, move: 0, vision: 6, icon: '📡' },
+            { id: 'c7', name: 'Hacker', cost: 130, hp: 30, dmg: 15, range: 3, move: 3, vision: 5, icon: '💻' },
+            { id: 'c8', name: 'Laser', cost: 190, hp: 60, dmg: 55, range: 4, move: 1, vision: 4, icon: '⚡' },
+            { id: 'c9', name: 'Nuke', cost: 800, hp: 50, dmg: 250, range: 2, move: 1, vision: 4, icon: '☢️' },
+            { id: 'c10', name: 'Titan', cost: 600, hp: 400, dmg: 80, range: 1, move: 1, vision: 4, icon: '👺' }
+        ]
+    },
+    XENO: {
+        color: '#8e44ad',
+        units: [
+            { id: 'x1', name: 'Larva', cost: 25, hp: 15, dmg: 6, range: 1, move: 4, vision: 3, icon: '🐛' },
+            { id: 'x2', name: 'Spitter', cost: 60, hp: 25, dmg: 15, range: 4, move: 3, vision: 4, icon: '🐍' },
+            { id: 'x3', name: 'Brute', cost: 140, hp: 100, dmg: 25, range: 1, move: 2, vision: 3, icon: '🐗' },
+            { id: 'x4', name: 'Flyer', cost: 90, hp: 30, dmg: 12, range: 1, move: 7, vision: 7, icon: '🦇' },
+            { id: 'x5', name: 'Burrow', cost: 150, hp: 60, dmg: 40, range: 1, move: 2, vision: 2, icon: '🦂' },
+            { id: 'x6', name: 'Spore', cost: 50, hp: 10, dmg: 80, range: 1, move: 3, vision: 3, icon: '💣' },
+            { id: 'x7', name: 'Hydra', cost: 300, hp: 200, dmg: 35, range: 2, move: 2, vision: 4, icon: '🐲' },
+            { id: 'x8', name: 'Webber', cost: 120, hp: 50, dmg: 10, range: 3, move: 3, vision: 5, icon: '🕸️' },
+            { id: 'x9', name: 'Queen', cost: 500, hp: 250, dmg: 50, range: 3, move: 1, vision: 6, icon: '👑' },
+            { id: 'x10', name: 'Devour', cost: 1000, hp: 800, dmg: 100, range: 1, move: 1, vision: 5, icon: '👹' }
+        ]
+    },
+    CUSTOM: {
+        color: '#f1c40f',
+        units: [] // Will be populated by Creator
+    }
+};
+
+// Default Custom Units to start with
+for(let i=1; i<=10; i++) {
+    FACTIONS.CUSTOM.units.push({
+        id: `u${i}`, name: `Unit ${i}`, icon: '👤',
+        hp: 50, dmg: 10, range: 1, move: 2, vision: 3, cost: 70
+    });
+}
+
+const COLORS = {
+    bg: '#050505', grid: '#1a1a1a', move: 'rgba(0, 255, 255, 0.3)', attack: 'rgba(255, 0, 0, 0.4)',
+    p1: '#3498db', p2: '#e74c3c', fog: 'rgba(0,0,0,0.7)', hidden: 'black'
+};
+
+/** * CREATOR LOGIC 
+ */
+class Creator {
+    constructor() {
+        this.selectedIdx = 0;
+        this.units = FACTIONS.CUSTOM.units;
+    }
+
+    open() {
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('creator-screen').style.display = 'flex';
+        this.renderList();
+        this.loadToEditor(0);
+    }
+
+    close() {
+        document.getElementById('creator-screen').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+    }
+
+    renderList() {
+        const list = document.getElementById('unit-list');
+        list.innerHTML = '<h3>Your Army</h3>';
+        this.units.forEach((u, i) => {
+            const div = document.createElement('div');
+            div.className = `list-item ${i === this.selectedIdx ? 'selected' : ''}`;
+            div.innerHTML = `<span style="font-size:20px">${u.icon}</span> <span>${u.name}</span> <span style="margin-left:auto; color:gold">${u.cost}g</span>`;
+            div.onclick = () => { this.selectedIdx = i; this.renderList(); this.loadToEditor(i); };
+            list.appendChild(div);
+        });
+    }
+
+    loadToEditor(idx) {
+        const u = this.units[idx];
+        document.getElementById('edit-name').value = u.name;
+        document.getElementById('edit-icon').value = u.icon;
+        document.getElementById('edit-hp').value = u.hp;
+        document.getElementById('edit-dmg').value = u.dmg;
+        document.getElementById('edit-rng').value = u.range;
+        document.getElementById('edit-mov').value = u.move;
+        this.updateCost();
+    }
+
+    updateCost() {
+        const hp = parseInt(document.getElementById('edit-hp').value);
+        const dmg = parseInt(document.getElementById('edit-dmg').value);
+        const rng = parseInt(document.getElementById('edit-rng').value);
+        const mov = parseInt(document.getElementById('edit-mov').value);
+
+        // Update Text Labels
+        document.getElementById('val-hp').innerText = hp;
+        document.getElementById('val-dmg').innerText = dmg;
+        document.getElementById('val-rng').innerText = rng;
+        document.getElementById('val-mov').innerText = mov;
+
+        // --- EXPONENTIAL COST FORMULA ---
+        // Base Cost
+        let cost = 10;
+        
+        // HP: Linear (Tankiness is cheap)
+        cost += (hp * 0.8);
+
+        // Damage: Quadratic (High damage breaks the game)
+        // 10 dmg -> 25g. 100 dmg -> 2500g.
+        cost += (dmg * dmg) / 4; 
+
+        // Range: Cubic (Range is the strongest stat)
+        // 1 rng -> 2g. 8 rng -> 1024g.
+        cost += Math.pow(rng, 3) * 2;
+
+        // Speed: Steep Linear
+        cost += (mov * 25);
+        
+        // Final
+        cost = Math.floor(cost);
+        document.getElementById('cost-display').innerText = `COST: ${cost}`;
+        return cost;
+    }
+
+    saveCurrent() {
+        const u = this.units[this.selectedIdx];
+        u.name = document.getElementById('edit-name').value || "Unit";
+        u.icon = document.getElementById('edit-icon').value;
+        u.hp = parseInt(document.getElementById('edit-hp').value);
+        u.dmg = parseInt(document.getElementById('edit-dmg').value);
+        u.range = parseInt(document.getElementById('edit-rng').value);
+        u.move = parseInt(document.getElementById('edit-mov').value);
+        u.cost = this.updateCost();
+        u.vision = u.range + 2; 
+
+        this.renderList();
+    }
+}
+
+/** * HELPER CLASSES (MATH)
+ */
+class Hex {
+    constructor(q, r) { this.q = q; this.r = r; }
+    static fromPixel(x, y) {
+        const q = (2/3 * x) / HEX_SIZE;
+        const r = (-1/3 * x + Math.sqrt(3)/3 * y) / HEX_SIZE;
+        return Hex.round(q, r);
+    }
+    static round(q, r) {
+        let s = -q-r; let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
+        let q_diff = Math.abs(rq-q), r_diff = Math.abs(rr-r), s_diff = Math.abs(rs-s);
+        if (q_diff > r_diff && q_diff > s_diff) rq = -rr-rs;
+        else if (r_diff > s_diff) rr = -rq-rs;
+        return new Hex(rq, rr);
+    }
+    toPixel() { return { x: HEX_SIZE * (3/2 * this.q), y: HEX_SIZE * (Math.sqrt(3)/2 * this.q + Math.sqrt(3) * this.r) }; }
+    equals(h) { return this.q === h.q && this.r === h.r; }
+    dist(h) { return (Math.abs(this.q - h.q) + Math.abs(this.r - h.r) + Math.abs(-this.q-this.r - (-h.q-h.r))) / 2; }
+    neighbors() { return [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]].map(d => new Hex(this.q+d[0], this.r+d[1])); }
+}
+
+/** * MENU & STATE MANAGER 
+ */
+class Menu {
+    constructor() {
+        this.faction = 'IMPERIUM';
+        this.level = 1;
+        this.initButtons();
+    }
+    initButtons() {
+        const container = document.getElementById('level-select');
+        for(let i=1; i<=10; i++) {
+            const btn = document.createElement('button');
+            btn.innerText = i;
+            if(i===1) btn.classList.add('active');
+            btn.onclick = () => {
+                this.level = i;
+                Array.from(container.children).forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            };
+            container.appendChild(btn);
+        }
+    }
+    selectFaction(f, btn) {
+        this.faction = f;
+        const btns = document.getElementById('faction-select').children;
+        Array.from(btns).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    startGame() {
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('top-bar').style.display = 'flex';
+        document.getElementById('bottom-bar').style.display = 'flex';
+        document.getElementById('home-btn').style.display = 'block';
+        game.init(this.faction, this.level);
+    }
+}
+
+/** * GAME ENGINE 
+ */
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.canvas.addEventListener('mousedown', e => this.onClick(e));
+        this.canvas.addEventListener('contextmenu', e => { e.preventDefault(); this.deselect(); });
+        this.canvas.addEventListener('mousemove', e => this.onHover(e));
+        this.running = false;
+        this.loop();
+    }
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+    }
+    init(playerFactionKey, level) {
+        this.pFaction = FACTIONS[playerFactionKey];
+        const enemyKey = playerFactionKey === 'CYBERNET' ? 'IMPERIUM' : 'CYBERNET';
+        this.eFaction = FACTIONS[enemyKey];
+        this.level = level;
+        
+        this.map = new Map();
+        this.units = [];
+        this.structures = [];
+        this.anims = [];
+        this.floaters = [];
+        
+        this.turn = 1;
+        this.resources = 150 + (level * 25);
+        this.isPlayerTurn = true;
+        this.camera = { x: this.width/2, y: this.height/2 };
+        this.selectedHex = null;
+        this.validMoves = [];
+        this.validAttacks = [];
+        this.spawnMode = null;
+        
+        this.tutStep = level === 1 ? 1 : 0;
+        
+        this.generateLevel(level);
+        this.updateVisibility();
+        this.populateShop();
+        this.updateUI();
+        this.updateTutorial();
+        this.running = true;
+    }
+
+    generateLevel(lvl) {
+        const rad = 4 + Math.ceil(lvl * 0.6);
+        for(let q = -rad; q <= rad; q++) {
+            let r1 = Math.max(-rad, -q-rad), r2 = Math.min(rad, -q+rad);
+            for(let r = r1; r <= r2; r++) {
+                let env = 'plain';
+                if(lvl > 1 && Math.random() > 0.85) env = 'forest';
+                if(lvl > 1 && Math.random() > 0.93) env = 'mountain';
+                this.map.set(`${q},${r}`, { hex: new Hex(q,r), env, visible: false, explored: false });
+            }
+        }
+        this.structures.push({ hex: new Hex(-rad+1, 0), type: 'base', owner: 'p1', hp: 200, maxHp: 200 });
+        this.structures.push({ hex: new Hex(rad-1, 0), type: 'base', owner: 'p2', hp: 200, maxHp: 200 });
+        for(let i=0; i < 3+lvl; i++) {
+            let placed=false;
+            while(!placed) {
+                let h = new Hex(Math.floor(Math.random()*rad*2)-rad, Math.floor(Math.random()*rad*2)-rad);
+                if(this.getTile(h) && !this.getStruct(h) && this.getTile(h).env !== 'mountain') {
+                    this.structures.push({ hex: h, type: 'crystal', owner: null });
+                    placed=true;
+                }
+            }
+        }
+        if(lvl === 1) this.spawnUnit(this.eFaction.units[0], 'p2', new Hex(2, -1));
+    }
+
+    updateTutorial() {
+        const box = document.getElementById('tutorial-box');
+        if(this.tutStep === 0) { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        const steps = [ "", "Step 1: Click the First Unit in the Shop (Bottom Left).", "Step 2: Click a tile near your Blue Base to spawn.", "Step 3: Click your new Unit to select it.", "Step 4: Click a Cyan tile to Move closer to the enemy.", "Step 5: If an enemy is in Range (Red Crosshair), Click it to Attack!", "Step 6: Great job! Destroy the Enemy Base to win." ];
+        box.innerText = steps[this.tutStep] || "Tutorial Complete!";
+    }
+
+    // --- GAMEPLAY LOGIC ---
+    updateVisibility() {
+        this.map.forEach(t => t.visible = false);
+        const reveal = (hex, rng) => {
+            const rad = rng;
+            for(let q = -rad; q <= rad; q++) {
+                for(let r = Math.max(-rad, -q-rad); r <= Math.min(rad, -q+rad); r++) {
+                    const t = this.getTile(new Hex(hex.q+q, hex.r+r));
+                    if(t) { t.visible = true; t.explored = true; }
+                }
+            }
+        };
+        this.units.filter(u => u.owner === 'p1').forEach(u => reveal(u.hex, u.vision));
+        this.structures.filter(s => s.owner === 'p1').forEach(s => reveal(s.hex, 3));
+    }
+
+    onClick(e) {
+        if(!this.isPlayerTurn || !this.running) return;
+        const rect = this.canvas.getBoundingClientRect();
+        const hex = Hex.fromPixel(e.clientX - rect.left - this.camera.x, e.clientY - rect.top - this.camera.y);
+        const tile = this.getTile(hex);
+
+        if(this.spawnMode) {
+            if(!tile) return;
+            const base = this.structures.find(s => s.owner === 'p1' && s.type === 'base');
+            if(hex.dist(base.hex) <= 2 && !this.getUnit(hex) && tile.env !== 'mountain' && tile.visible) {
+                this.spawnUnit(this.spawnMode, 'p1', hex);
+                this.resources -= this.spawnMode.cost;
+                this.spawnMode = null;
+                document.body.style.cursor = 'default';
+                this.updateVisibility();
+                this.updateUI();
+                if(this.tutStep === 2) { this.tutStep = 3; this.updateTutorial(); }
+            } else {
+                this.addFloater(hex, "Invalid", "red");
+            }
+            return;
+        }
+
+        if(this.selectedHex) {
+            if(this.validAttacks.some(h => h.equals(hex))) { this.performAttack(this.selectedHex, hex); return; }
+            if(this.validMoves.some(h => h.equals(hex))) { this.performMove(this.selectedHex, hex); return; }
+        }
+
+        const unit = this.getUnit(hex);
+        if(unit && unit.owner === 'p1' && tile.visible) {
+            this.selectUnit(unit);
+            if(this.tutStep === 3) { this.tutStep = 4; this.updateTutorial(); }
+        } else {
+            this.deselect();
+        }
+    }
+
+    selectUnit(unit) {
+        this.selectedHex = unit.hex;
+        this.validMoves = []; this.validAttacks = [];
+        if(!unit.moved) {
+            let open = [{h: unit.hex, m: unit.move}]; let closed = new Set([unit.hex.q+','+unit.hex.r]);
+            while(open.length) {
+                let cur = open.shift(); if(cur.m <= 0) continue;
+                cur.h.neighbors().forEach(n => {
+                    const t = this.getTile(n);
+                    if(t && t.env !== 'mountain' && !this.getUnit(n) && !closed.has(n.q+','+n.r)) {
+                        closed.add(n.q+','+n.r); this.validMoves.push(n); open.push({h: n, m: cur.m-1});
+                    }
+                });
+            }
+        }
+        if(!unit.attacked) {
+            this.units.forEach(e => { if(e.owner !== 'p1' && unit.hex.dist(e.hex) <= unit.range && this.getTile(e.hex).visible) this.validAttacks.push(e.hex); });
+            this.structures.forEach(s => { if(s.owner && s.owner !== 'p1' && unit.hex.dist(s.hex) <= unit.range && this.getTile(s.hex).visible) this.validAttacks.push(s.hex); });
+        }
+    }
+
+    performMove(from, to) {
+        const unit = this.getUnit(from);
+        unit.hex = to; unit.moved = true;
+        const s = this.getStruct(to); if(s && s.type === 'crystal') { s.owner = 'p1'; this.addFloater(to, "Captured!", "gold"); }
+        this.updateVisibility(); this.selectUnit(unit);
+        if(this.tutStep === 4) { this.tutStep = 5; this.updateTutorial(); }
+    }
+
+    performAttack(from, to) {
+        const attacker = this.getUnit(from);
+        const target = this.getUnit(to) || this.getStruct(to);
+        attacker.moved = true; attacker.attacked = true; this.deselect();
+        const p1 = from.toPixel(); const p2 = to.toPixel();
+        this.anims.push({ type: 'shot', sx: p1.x, sy: p1.y, ex: p2.x, ey: p2.y, t: 0, cb: () => this.damage(attacker, target, this.getTile(to).env) });
+        if(this.tutStep === 5) { this.tutStep = 6; this.updateTutorial(); }
+    }
+
+    damage(attacker, target, env) {
+        let amt = attacker.dmg; if(env === 'forest') amt = Math.floor(amt * 0.7);
+        if(target.curHp !== undefined) target.curHp -= amt; else target.hp -= amt;
+        this.addFloater(target.hex, `-${amt}`, 'red');
+        if((target.curHp||target.hp) <= 0) {
+            if(target.curHp !== undefined) { this.units = this.units.filter(u => u !== target); this.addFloater(target.hex, "DEAD", "red"); }
+            else { this.structures = this.structures.filter(s => s !== target); if(target.type === 'base') this.endGame(target.owner); }
+        }
+    }
+
+    endTurn() {
+        if(!this.isPlayerTurn) return;
+        this.isPlayerTurn = false; this.deselect();
+        let inc = 50 + this.structures.filter(s => s.owner==='p1'&&s.type==='crystal').length * 25;
+        this.resources += inc; this.addFloater(this.structures.find(s=>s.owner==='p1'&&s.type==='base').hex, `+${inc}`, "gold");
+        this.updateUI(); setTimeout(() => this.aiTurn(), 800);
+    }
+
+    aiTurn() {
+        const aiBase = this.structures.find(s => s.owner === 'p2' && s.type === 'base');
+        const pBase = this.structures.find(s => s.owner === 'p1' && s.type === 'base');
+        if(!aiBase || !pBase) return;
+        let budget = 100 + (this.level * 30);
+        let cheapUnit = this.eFaction.units[0]; let heavyUnit = this.eFaction.units[2];
+        let choice = Math.random() > 0.6 ? heavyUnit : cheapUnit;
+        if(budget >= choice.cost) {
+            let neighbors = aiBase.hex.neighbors();
+            for(let n of neighbors) {
+                let t = this.getTile(n);
+                if(t && !this.getUnit(n) && t.env !== 'mountain') { this.spawnUnit(choice, 'p2', n); break; }
+            }
+        }
+        const aiUnits = this.units.filter(u => u.owner === 'p2');
+        const doUnit = (idx) => {
+            if(idx >= aiUnits.length) { this.units.forEach(u => { u.moved=false; u.attacked=false; }); this.turn++; this.isPlayerTurn = true; this.updateUI(); return; }
+            const u = aiUnits[idx]; let target = pBase.hex; let minDist = 999;
+            this.units.filter(p=>p.owner==='p1').forEach(p => { let d = u.hex.dist(p.hex); if(d < minDist) { minDist = d; target = p.hex; } });
+            if(u.hex.dist(target) <= u.range) {
+                const p1 = u.hex.toPixel(); const p2 = target.toPixel();
+                this.anims.push({ type: 'shot', sx: p1.x, sy: p1.y, ex: p2.x, ey: p2.y, t: 0, cb: () => { let vic = this.getUnit(target) || this.getStruct(target); if(vic) this.damage(u, vic, this.getTile(target).env); setTimeout(() => doUnit(idx+1), 300); } });
+            } else {
+                let bestMove = u.hex; let bestDist = 999;
+                u.hex.neighbors().forEach(n => { let t = this.getTile(n); if(t && !this.getUnit(n) && t.env !== 'mountain') { let d = n.dist(target); if(d < bestDist) { bestDist = d; bestMove = n; } } });
+                u.hex = bestMove; setTimeout(() => doUnit(idx+1), 200);
+            }
+        };
+        doUnit(0);
+    }
+
+    // --- RENDER & UTILS ---
+    loop() {
+        if(!this.running) { requestAnimationFrame(()=>this.loop()); return; }
+        this.ctx.fillStyle = COLORS.bg; this.ctx.fillRect(0,0,this.width,this.height);
+        this.ctx.save(); this.ctx.translate(this.camera.x, this.camera.y);
+        this.map.forEach(t => {
+            if(t.explored) { this.drawHex(t.hex, t.env, t.visible); if(!t.visible) { this.ctx.fillStyle=COLORS.fog; this.fillHex(t.hex); } }
+            else { this.ctx.fillStyle=COLORS.hidden; this.fillHex(t.hex); }
+        });
+        if(this.selectedHex) this.drawHigh(this.selectedHex, 'white', false);
+        this.validMoves.forEach(h => this.drawHigh(h, COLORS.move, false));
+        this.validAttacks.forEach(h => this.drawHigh(h, COLORS.attack, true));
+        this.structures.forEach(s => { if(this.getTile(s.hex).visible) this.drawStruct(s); });
+        this.units.forEach(u => { if(this.getTile(u.hex).visible) this.drawUnit(u); });
+        this.anims = this.anims.filter(a => {
+            a.t += 0.08; this.ctx.beginPath(); this.ctx.moveTo(a.sx, a.sy); this.ctx.lineTo(a.sx+(a.ex-a.sx)*a.t, a.sy+(a.ey-a.sy)*a.t);
+            this.ctx.strokeStyle = 'yellow'; this.ctx.lineWidth = 3; this.ctx.stroke(); if(a.t >= 1) { a.cb(); return false; } return true;
+        });
+        this.floaters = this.floaters.filter(f => { f.life--; f.y-=0.5; this.ctx.fillStyle = f.c; this.ctx.font="bold 14px Arial"; this.ctx.fillText(f.txt, f.x, f.y); return f.life>0; });
+        this.ctx.restore(); requestAnimationFrame(()=>this.loop());
+    }
+    drawHex(h, env, vis) {
+        const p = h.toPixel(); this.ctx.beginPath();
+        for(let i=0;i<6;i++) this.ctx.lineTo(p.x+HEX_SIZE*Math.cos(i*Math.PI/3), p.y+HEX_SIZE*Math.sin(i*Math.PI/3));
+        this.ctx.fillStyle = env==='mountain'?'#4a3b32' : (env==='forest'?'#2d5a27':COLORS.grid);
+        this.ctx.fill(); this.ctx.strokeStyle='#333'; this.ctx.stroke();
+        if(env==='forest' && vis) { this.ctx.fillStyle='rgba(255,255,255,0.2)'; this.ctx.fillText('🛡️',p.x-6,p.y+4); }
+    }
+    fillHex(h) { const p = h.toPixel(); this.ctx.beginPath(); for(let i=0;i<6;i++) this.ctx.lineTo(p.x+(HEX_SIZE+1)*Math.cos(i*Math.PI/3), p.y+(HEX_SIZE+1)*Math.sin(i*Math.PI/3)); this.ctx.fill(); }
+    drawHigh(h, c, isAtk) { const p = h.toPixel(); this.ctx.beginPath(); if(isAtk) { this.ctx.strokeStyle=c; this.ctx.lineWidth=3; this.ctx.arc(p.x, p.y, HEX_SIZE*0.7,0,7); this.ctx.stroke(); this.ctx.lineWidth=1; } else { this.ctx.fillStyle=c; this.ctx.arc(p.x, p.y, HEX_SIZE*0.7,0,7); this.ctx.fill(); } }
+    drawUnit(u) {
+        const p = u.hex.toPixel(); this.ctx.beginPath(); this.ctx.arc(p.x,p.y,16,0,7);
+        this.ctx.fillStyle = u.owner==='p1'?this.pFaction.color:this.eFaction.color; this.ctx.fill();
+        this.ctx.fillStyle='white'; this.ctx.font='16px Arial'; this.ctx.textAlign='center'; this.ctx.textBaseline='middle'; this.ctx.fillText(u.icon, p.x, p.y);
+        this.ctx.fillStyle='red'; this.ctx.fillRect(p.x-12,p.y-24,24,4); this.ctx.fillStyle='#0f0'; this.ctx.fillRect(p.x-12,p.y-24,24*(u.curHp/u.hp),4);
+        if(u.moved&&u.owner==='p1') { this.ctx.fillStyle='rgba(0,0,0,0.5)'; this.ctx.fill(); }
+    }
+    drawStruct(s) {
+        const p = s.hex.toPixel();
+        if(s.type==='base') { this.ctx.fillStyle=s.owner==='p1'?this.pFaction.color:this.eFaction.color; this.ctx.fillRect(p.x-15,p.y-15,30,30); this.ctx.fillStyle='red'; this.ctx.fillRect(p.x-20,p.y-30,40,5); this.ctx.fillStyle='#0f0'; this.ctx.fillRect(p.x-20,p.y-30,40*(s.hp/s.maxHp),5); } 
+        else { this.ctx.fillStyle=s.owner?'gold':'#555'; this.ctx.beginPath(); this.ctx.arc(p.x,p.y,10,0,7); this.ctx.fill(); this.ctx.fillStyle='white'; this.ctx.font='10px Arial'; this.ctx.fillText('$',p.x,p.y); }
+    }
+    onHover(e) { }
+    spawnUnit(proto, owner, hex) { this.units.push({...proto, owner, hex, curHp: proto.hp, moved:false, attacked:false}); }
+    getTile(h) { return this.map.get(`${h.q},${h.r}`); }
+    getUnit(h) { return this.units.find(u => u.hex.equals(h)); }
+    getStruct(h) { return this.structures.find(s => s.hex.equals(h)); }
+    addFloater(h, t, c) { const p=h.toPixel(); this.floaters.push({x:p.x,y:p.y-20,txt:t,c,life:60}); }
+    deselect() { this.selectedHex=null; this.validMoves=[]; this.validAttacks=[]; }
+    populateShop() {
+        const d = document.getElementById('unit-shop'); d.innerHTML='';
+        this.pFaction.units.forEach(u => {
+            const c = document.createElement('div'); c.className='unit-card';
+            c.innerHTML=`<div style="font-size:20px">${u.icon}</div><div>${u.name}</div><div style="color:gold">${u.cost}</div>`;
+            c.onclick = () => { if(this.resources>=u.cost) { this.spawnMode=u; document.body.style.cursor='crosshair'; if(this.tutStep === 1) { this.tutStep = 2; this.updateTutorial(); } } };
+            c.onmouseenter = (e) => { const tip = document.getElementById('tooltip'); tip.style.display='block'; tip.style.left=e.clientX+'px'; tip.style.top=(e.clientY-100)+'px'; tip.innerHTML=`<b>${u.name}</b><br>HP: ${u.hp} DMG: ${u.dmg}<br>RNG: ${u.range} MOV: ${u.move}<br>VIS: ${u.vision}`; };
+            c.onmouseleave=()=>document.getElementById('tooltip').style.display='none'; d.appendChild(c);
+        });
+    }
+    updateUI() { document.getElementById('res-txt').innerText=this.resources; document.getElementById('turn-txt').innerText=this.turn; document.getElementById('lvl-txt').innerText=this.level; }
+    endGame(loser) { this.running = false; alert(loser === 'p2' ? "VICTORY!" : "DEFEAT!"); location.reload(); }
+}
+
+const creator = new Creator();
+const menu = new Menu();
+const game = new Game();
+</script>
+</body>
+</html>
