@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Escape</title>
+    <style>
+        :root {
+            /* SMART SCALING LOGIC:
+               1. 90vw = 90% of screen width
+               2. 162vh = 90% of screen height converted to width (based on 1.8 aspect ratio)
+               3. 1400px = Max width cap
+               The game takes the SMALLEST of these, ensuring it fits perfectly on any screen size.
+            */
+            --game-width: min(90vw, 162vh, 1400px);
+            --bg-color: #020202;
+            --ui-border: #440000;
+            --text-main: #ff3333;
+        }
+
+        body { 
+            background: var(--bg-color); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            color: var(--text-main); 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            overflow: hidden; 
+            height: 100vh; 
+            justify-content: center;
+        }
+
+        #game-container { 
+            position: relative; 
+            border: 2px solid var(--ui-border); 
+            box-shadow: 0 0 20px #ff000033;
+            width: var(--game-width); 
+            aspect-ratio: 720/400; 
+        }
+
+        canvas { 
+            display: block; 
+            background: #000; 
+            image-rendering: pixelated; 
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui { 
+            width: var(--game-width); 
+            padding: 15px; 
+            background: #050000; 
+            border: 2px solid var(--ui-border); 
+            border-top: none; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-sizing: border-box; 
+            font-size: calc(var(--game-width) * 0.015); /* Responsive Font */
+        }
+
+        #banner { 
+            position: absolute; 
+            top: 10px; 
+            width: 100%; 
+            text-align: center; 
+            font-size: calc(var(--game-width) * 0.03); 
+            font-weight: bold; 
+            text-shadow: 2px 2px #000; 
+            pointer-events: none; 
+            color: #ff0000; 
+            z-index: 5; 
+        }
+        
+        #msg-overlay { 
+            position: absolute; 
+            bottom: 25%; 
+            width: 100%; 
+            text-align: center; 
+            color: #ff3333; 
+            font-size: calc(var(--game-width) * 0.03); 
+            font-weight: bold; 
+            text-shadow: 2px 2px #000; 
+            pointer-events: none; 
+            z-index: 20; 
+            letter-spacing: 2px; 
+        }
+
+        #interaction-prompt {
+            position: absolute; 
+            top: 60%; 
+            width: 100%; 
+            text-align: center; 
+            color: #fff; 
+            font-size: calc(var(--game-width) * 0.025); 
+            font-weight: bold; 
+            text-shadow: 0px 2px 5px #000; 
+            pointer-events: none; 
+            z-index: 25; 
+            display: none;
+            animation: float 2s infinite ease-in-out;
+        }
+        
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-5px); } 100% { transform: translateY(0px); } }
+
+        /* SCREENS */
+        #game-over-screen, #win-screen, #level-screen, #start-screen { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(5, 0, 0, 1); 
+            display: none; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 100; 
+            color: #fff; 
+            text-align: center; 
+        }
+
+        /* Start Screen */
+        #start-screen { z-index: 200; border: 1px solid var(--ui-border); display: flex; } /* Set to flex by default */
+        .title-huge { 
+            font-size: calc(var(--game-width) * 0.06); 
+            color: #ff3333; 
+            text-shadow: 0 0 10px #ff0000; 
+            margin-bottom: 10px; 
+            letter-spacing: 5px; 
+        }
+        .subtitle { color: #aa0000; margin-bottom: 40px; font-size: calc(var(--game-width) * 0.018); }
+        .controls-box { text-align: left; border: 1px solid var(--ui-border); padding: 20px; background: #0a0000; margin-bottom: 40px; }
+        .control-row { margin: 10px 0; font-size: calc(var(--game-width) * 0.015); color: #cc5555; }
+        .key-badge { border: 1px solid #ff3333; padding: 2px 8px; color: #fff; margin-right: 10px; background: #220000; }
+        .start-prompt { animation: blink 1s infinite; color: #ffcc00; font-size: calc(var(--game-width) * 0.02); cursor: pointer; }
+
+        #win-screen { background: rgba(0, 40, 0, 0.95); color: #00ff00; }
+        #level-screen { background: #000; color: #ffcc00; z-index: 90; }
+        #level-story { margin-top: 20px; font-size: calc(var(--game-width) * 0.02); max-width: 70%; color: #ff3333; line-height: 1.5; }
+        
+        /* Game Over Font Sizing */
+        #game-over-screen h1 { font-size: calc(var(--game-width) * 0.05); margin: 0 0 20px 0; }
+        #death-msg { font-size: calc(var(--game-width) * 0.02); }
+
+        .hazard { color: #ffff00; animation: blink 0.2s infinite; visibility: hidden; font-weight: bold; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+
+        .btn-container { display: flex; gap: 40px; margin-top: 30px; }
+        .retry-btn { color: #ffcc00; cursor: pointer; border: 2px solid #ffcc00; padding: 10px 20px; transition: 0.2s; font-size: calc(var(--game-width) * 0.015); }
+        .retry-btn:hover { background: #ffcc00; color: #000; }
+        .quit-btn { color: #ff3333; cursor: pointer; border: 2px solid #ff3333; padding: 10px 20px; transition: 0.2s; font-size: calc(var(--game-width) * 0.015); }
+        .quit-btn:hover { background: #ff3333; color: #000; }
+
+        /* UI Panel Text adjustments */
+        #status { font-size: calc(var(--game-width) * 0.015); }
+        #inventory { font-size: calc(var(--game-width) * 0.015); }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="banner">SECTOR 1 - SLOTH</div>
+        <div id="msg-overlay"></div>
+        <div id="interaction-prompt"></div>
+
+        <div id="start-screen">
+            <h1 class="title-huge">ESCAPE</h1>
+            <p class="subtitle">You're Disgusting</p>
+            <div class="controls-box">
+                <div class="control-row"><span class="key-badge">W A S D</span> MOVE OPERATOR</div>
+                <div class="control-row"><span class="key-badge">SPACE</span> PHASE REALITY (TOGGLE)</div>
+                <div class="control-row"><span class="key-badge">E</span> INTERACT / COLLECT KEY</div>
+            </div>
+            <div class="start-prompt" onclick="beginGame()">[ PRESS ENTER TO INITIALIZE ]</div>
+        </div>
+
+        <div id="game-over-screen">
+            <h1 style="letter-spacing: 10px;">CRITICAL FAILURE</h1>
+            <p id="death-msg">Biological integrity compromised.</p>
+            <div class="btn-container">
+                <div class="retry-btn" onclick="retryLevel()">[R] RETRY SECTOR</div>
+                <div class="quit-btn" onclick="location.reload()">[Q] SYSTEM REBOOT</div>
+            </div>
+        </div>
+
+        <div id="win-screen">
+            <h1 style="letter-spacing: 10px;">ESCAPED</h1>
+            <p style="font-size: 20px; color: #ccffcc; margin-top: 20px;">You have left the simulation.</p>
+            <div class="btn-container">
+                <div class="quit-btn" onclick="location.reload()" style="border-color: #00ff00; color: #00ff00;">[Q] REBOOT</div>
+            </div>
+        </div>
+
+        <div id="level-screen">
+            <p id="level-story">Initializing next sector...</p>
+        </div>
+
+        <canvas id="gameCanvas" width="720" height="400"></canvas>
+    </div>
+    <div class="ui">
+        <div>
+            <div id="status">DIMENSION: REALITY</div>
+            <div id="warning" class="hazard">⚠️ COLLISION WARNING: DO NOT PHASE ⚠️</div>
+        </div>
+        <div style="border-left: 2px solid #880000; padding-left: 10px;">
+            <div id="inventory">OBJECTIVE: FIND THE KEY</div>
+            <div style="font-size: calc(var(--game-width) * 0.012); color: #660000; margin-top: 5px;">WASD: MOVE | SPACE: PHASE | E: INTERACT</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const hazardUI = document.getElementById('warning');
+        const invUI = document.getElementById('inventory');
+        const banner = document.getElementById('banner');
+        const msgOverlay = document.getElementById('msg-overlay');
+        const interactionPrompt = document.getElementById('interaction-prompt');
+
+        // --- AUDIO ENGINE ---
+        let audioCtx = null, warningOsc = null, warningGain = null;
+        let ambientOsc1 = null, ambientOsc2 = null, lfo = null, ambientGain = null;
+        let noiseBuffer = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            warningGain = audioCtx.createGain();
+            warningGain.connect(audioCtx.destination);
+            warningGain.gain.value = 0;
+
+            const bufferSize = audioCtx.sampleRate * 2; 
+            noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            playAmbientMusic();
+        }
+
+        function playAmbientMusic() {
+            if (!audioCtx) return;
+            if (ambientGain) ambientGain.disconnect(); 
+            ambientGain = audioCtx.createGain();
+            ambientGain.gain.value = 0.15; 
+            ambientGain.connect(audioCtx.destination);
+            ambientOsc1 = audioCtx.createOscillator();
+            ambientOsc1.type = 'sawtooth';
+            ambientOsc1.frequency.value = 55; 
+            ambientOsc2 = audioCtx.createOscillator();
+            ambientOsc2.type = 'sine';
+            ambientOsc2.frequency.value = 58; 
+            lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.2; 
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 50; 
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 200; 
+            lfo.connect(filter.frequency); 
+            ambientOsc1.connect(filter);
+            ambientOsc2.connect(filter);
+            filter.connect(ambientGain);
+            ambientOsc1.start();
+            ambientOsc2.start();
+            lfo.start();
+        }
+
+        function playPhaseSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = inVoid ? 'sawtooth' : 'square';
+            osc.frequency.setValueAtTime(inVoid ? 120 : 330, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playHeartbeat(vol, pitch) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(pitch, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.12);
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.12);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+        }
+
+        function playBreath(vol, speed) {
+            if (!audioCtx || !noiseBuffer) return;
+            const src = audioCtx.createBufferSource();
+            src.buffer = noiseBuffer;
+            src.loop = true;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 600; 
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0, audioCtx.currentTime);
+            const duration = 0.6 / speed; 
+            g.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + (duration * 0.2)); 
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration); 
+            src.connect(filter);
+            filter.connect(g);
+            g.connect(audioCtx.destination);
+            src.start();
+            src.stop(audioCtx.currentTime + duration + 0.1);
+        }
+
+        function playFootstep() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(inVoid ? 40 : 80, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.04, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playCollect() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.8);
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+        }
+
+        function playStalkerSpawnSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 1.5);
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 1.5);
+        }
+
+        function playScream() {
+            if (!audioCtx) return;
+            if(ambientGain) ambientGain.gain.value = 0;
+            if(warningGain) warningGain.gain.value = 0;
+            const now = audioCtx.currentTime;
+            const duration = 1.5;
+            const osc1 = audioCtx.createOscillator();
+            const g1 = audioCtx.createGain();
+            osc1.type = 'sawtooth';
+            osc1.frequency.setValueAtTime(1500, now); 
+            osc1.frequency.exponentialRampToValueAtTime(100, now + duration); 
+            g1.gain.setValueAtTime(0.7, now); 
+            g1.gain.linearRampToValueAtTime(0, now + duration);
+            const osc2 = audioCtx.createOscillator();
+            const g2 = audioCtx.createGain();
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(1450, now); 
+            osc2.frequency.exponentialRampToValueAtTime(150, now + duration);
+            g2.gain.setValueAtTime(0.7, now); 
+            g2.gain.linearRampToValueAtTime(0, now + duration);
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            noise.loop = true;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(1.0, now); 
+            noiseGain.gain.linearRampToValueAtTime(0, now + duration);
+            osc1.connect(g1); g1.connect(audioCtx.destination);
+            osc2.connect(g2); g2.connect(audioCtx.destination);
+            noise.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+            osc1.start(); osc2.start(); noise.start();
+            osc1.stop(now + duration); osc2.stop(now + duration); noise.stop(now + duration);
+        }
+
+        function playDenied() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+            g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playWarningSound(active) {
+            if (!audioCtx) return;
+            if (active) {
+                if (!warningOsc) {
+                    warningOsc = audioCtx.createOscillator();
+                    warningOsc.type = 'sawtooth';
+                    warningOsc.frequency.setValueAtTime(40, audioCtx.currentTime);
+                    warningOsc.connect(warningGain);
+                    warningOsc.start();
+                }
+                warningGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+            } else {
+                warningGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+            }
+        }
+
+        function showMessage(text) {
+            msgOverlay.innerText = text;
+            setTimeout(() => {
+                if (msgOverlay.innerText === text) msgOverlay.innerText = "";
+            }, 3000); 
+        }
+
+        // --- MAP DATA (ONLY LEVEL 1) ---
+        const levels = [
+            {
+                name: "SECTOR 1 - SLOTH",
+                totalKeys: 1,
+                story: "The fact that someone like you is trying to leave is a miracle",
+                playerStart: { x: 1, y: 1, dir: 1 },
+                stalkerStarts: [{ x: 15, y: 5 }],
+                reality: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+                    [1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+                    [1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+                    [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,3,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                void: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+                    [1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1],
+                    [1,0,0,0,1,2,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+                    [1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+                    [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            }
+        ];
+
+        // --- GAME LOGIC ---
+        let currentLevelIdx = 0;
+        let realityGrid, voidGrid;
+        let isDead = false, hasWon = false, inVoid = false, flickerVal = 1;
+        let isJumpscaring = false; 
+        let gameActive = false;
+        let keysCollected = 0; 
+        let keysNeeded = 1;    
+        let frameCount = 0;
+        let player = { x: 1, y: 1, dir: 1 }; 
+        let view = { x: 1, y: 1, angle: 0 };
+        let stalkers = []; 
+        const MAP_W = 25, MAP_H = 11;
+
+        function beginGame() {
+            gameActive = true;
+            document.getElementById('start-screen').style.display = 'none';
+            initAudio(); 
+        }
+
+        function retryLevel() {
+            document.getElementById('game-over-screen').style.display = "none";
+            loadLevel(currentLevelIdx);
+            playAmbientMusic();
+        }
+
+        function loadLevel(idx) {
+            if (idx >= levels.length) {
+                hasWon = true;
+                if(ambientGain) ambientGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2); 
+                document.getElementById('win-screen').style.display = "flex";
+                return;
+            }
+            if (idx > 0) {
+                const lvlScreen = document.getElementById('level-screen');
+                document.getElementById('level-story').innerText = levels[idx-1].story;
+                
+                lvlScreen.style.display = 'flex';
+                setTimeout(() => { lvlScreen.style.display = 'none'; }, 4000); 
+            }
+
+            currentLevelIdx = idx;
+            const levelData = levels[idx];
+            banner.innerText = levelData.name;
+            
+            realityGrid = JSON.parse(JSON.stringify(levelData.reality));
+            voidGrid = JSON.parse(JSON.stringify(levelData.void));
+
+            player.x = levelData.playerStart.x;
+            player.y = levelData.playerStart.y;
+            player.dir = levelData.playerStart.dir;
+            view.x = player.x; view.y = player.y;
+
+            stalkers = [];
+            for(let start of levelData.stalkerStarts) {
+                stalkers.push({ x: start.x, y: start.y, active: false });
+            }
+
+            keysCollected = 0;
+            keysNeeded = levelData.totalKeys;
+            
+            isDead = false;
+            inVoid = false;
+            isJumpscaring = false;
+            updateInventoryText();
+            document.getElementById('status').innerText = "DIMENSION: PURGATORY";
+        }
+
+        function updateInventoryText() {
+            if (keysCollected >= keysNeeded) {
+                invUI.innerText = "OBJECTIVE: ESCAPE";
+                invUI.style.color = "#00ff00";
+            } else {
+                invUI.innerText = `OBJECTIVE: FIND KEYS (${keysCollected}/${keysNeeded})`;
+                invUI.style.color = "#ff3333";
+            }
+        }
+
+        loadLevel(0);
+
+        function checkSafety() {
+            const targetGrid = inVoid ? realityGrid : voidGrid;
+            const tile = targetGrid[player.y][player.x];
+            // Only '0' is empty space. Everything else (Walls, Keys, Exits) is a collision hazard.
+            return tile === 0; 
+        }
+
+        window.onkeydown = (e) => {
+            const key = e.key.toLowerCase();
+            
+            if (!gameActive) {
+                if (key === 'enter' || key === ' ') beginGame();
+                return;
+            }
+
+            initAudio(); 
+            
+            if (isDead && !isJumpscaring) {
+                if (key === 'r') retryLevel();
+                if (key === 'q') location.reload();
+                return;
+            }
+
+            if (key === 'r' && !isDead) location.reload(); 
+            if (key === 'p' && !isDead) { 
+                showMessage("SYSTEM OVERRIDE: SKIPPING SECTOR...");
+                loadLevel(currentLevelIdx + 1);
+                return;
+            }
+
+            if (isDead || hasWon || isJumpscaring) return;
+
+            if (key === ' ') {
+                if (!checkSafety()) {
+                    playDenied();
+                    showMessage("SPATIAL INTERFERENCE: CANNOT PHASE");
+                } else {
+                    inVoid = !inVoid;
+                    playPhaseSound();
+                    document.getElementById('status').innerText = "DIMENSION: " + (inVoid ? "HELL" : "PURGATORY");
+                }
+
+            }
+
+            if (key === 'e') checkInteractions();
+
+            let dx = 0, dy = 0;
+            if (key === 'w') { dx = [0, 1, 0, -1][player.dir]; dy = [-1, 0, 1, 0][player.dir]; }
+            if (key === 's') { dx = [0, -1, 0, 1][player.dir]; dy = [1, 0, -1, 0][player.dir]; }
+            if (key === 'a') player.dir = (player.dir + 3) % 4; 
+            if (key === 'd') player.dir = (player.dir + 1) % 4;
+
+            const currentGrid = inVoid ? voidGrid : realityGrid;
+            if ((dx !== 0 || dy !== 0)) {
+                let nx = player.x + dx, ny = player.y + dy;
+                // CHANGED: Only move if the tile is 0 (Air). Keys and Exits are solid.
+                if (currentGrid[ny] && currentGrid[ny][nx] === 0) {
+                    player.x = nx; player.y = ny;
+                    playFootstep();
+                }
+            }
+        };
+
+        function triggerJumpscare(msg) {
+            isJumpscaring = true;
+            playScream();
+            setTimeout(() => {
+                killPlayer(msg);
+            }, 1500);
+        }
+
+        function killPlayer(msg) {
+            isDead = true;
+            isJumpscaring = false; 
+            if(warningGain) warningGain.gain.value = 0;
+            if(ambientGain) ambientGain.gain.value = 0; 
+            const screen = document.getElementById('game-over-screen');
+            document.getElementById('death-msg').innerText = msg;
+            screen.style.display = "flex";
+            interactionPrompt.style.display = "none";
+        }
+
+        function checkInteractions() {
+            // UPDATED: Check block in front instead of under
+            const dx = [0, 1, 0, -1][player.dir];
+            const dy = [-1, 0, 1, 0][player.dir];
+            const tx = player.x + dx;
+            const ty = player.y + dy;
+            
+            const grid = inVoid ? voidGrid : realityGrid;
+            if (!grid[ty] || grid[ty][tx] === undefined) return;
+            
+            const tile = grid[ty][tx];
+
+            if (tile === 2) {
+                keysCollected++;
+                grid[ty][tx] = 0; 
+                playCollect();
+                
+                let anyInactive = false;
+                stalkers.forEach(s => { if(!s.active) { s.active = true; anyInactive = true; } });
+                
+                if (anyInactive) {
+                    playStalkerSpawnSound();
+                    showMessage("THEY ARE COMING");
+                }
+
+                updateInventoryText();
+            }
+            
+            if (tile === 3) {
+                if (keysCollected >= keysNeeded) {
+                    loadLevel(currentLevelIdx + 1);
+                } else {
+                    playDenied();
+                    showMessage(`LOCKED: ${keysNeeded - keysCollected} MORE CORES REQUIRED`);
+                }
+            }
+        }
+
+        function update() {
+            if (!gameActive || isDead || hasWon || isJumpscaring) return;
+            frameCount++;
+
+            // --- INTERACTION PROMPTS (UPDATED) ---
+            const currentGrid = inVoid ? voidGrid : realityGrid;
+            
+            const dx = [0, 1, 0, -1][player.dir];
+            const dy = [-1, 0, 1, 0][player.dir];
+            const tx = player.x + dx;
+            const ty = player.y + dy;
+            
+            let tile = 0;
+            if (currentGrid[ty] && currentGrid[ty][tx] !== undefined) {
+                tile = currentGrid[ty][tx];
+            }
+
+            if (tile === 2) {
+                interactionPrompt.style.display = 'block';
+                interactionPrompt.innerText = "[E] COLLECT KEY";
+                interactionPrompt.style.color = "#ffff00";
+            } else if (tile === 3) {
+                interactionPrompt.style.display = 'block';
+                if (keysCollected < keysNeeded) {
+                    interactionPrompt.innerText = "LOCKED - NEED KEYS";
+                    interactionPrompt.style.color = "#ff3333";
+                } else {
+                    interactionPrompt.innerText = "[E] ESCAPE";
+                    interactionPrompt.style.color = "#00ff00";
+                }
+            } else {
+                interactionPrompt.style.display = 'none';
+            }
+            // --------------------------
+
+            let minDistance = 999;
+            let activeStalkers = 0;
+            
+            stalkers.forEach(s => {
+                let d = Math.hypot(player.x - s.x, player.y - s.y);
+                if(d < minDistance) minDistance = d;
+                if(s.active) activeStalkers++;
+            });
+
+            let urgency = activeStalkers > 0 ? Math.max(0, 20 - minDistance) : 0;
+            let heartCycle = Math.max(18, 70 - (urgency * 2.5)); 
+            heartCycle = Math.floor(heartCycle);
+
+            if (frameCount % heartCycle === 0) {
+               let vol = 0.08 + (urgency * 0.02); 
+               let pitch = 40 + (urgency * 2); 
+               playHeartbeat(vol, pitch); 
+               setTimeout(() => { if(!isDead) playHeartbeat(vol * 0.8, pitch + 10); }, 150 - (urgency * 5)); 
+            }
+            
+            if (activeStalkers > 0) {
+                let breathCycle = Math.floor(heartCycle * 1.5);
+                if (frameCount % breathCycle === 0) {
+                    let breathVol = 0.05 + (urgency * 0.015);
+                    let breathSpeed = 1 + (urgency * 0.1); 
+                    playBreath(breathVol, breathSpeed);
+                }
+            }
+
+            let moveRate = inVoid ? 35 : 120;
+            if (frameCount % moveRate === 0) {
+                const grid = inVoid ? voidGrid : realityGrid;
+                
+                stalkers.forEach(s => {
+                    if (!s.active) return;
+                    
+                    let moveX = Math.sign(player.x - s.x);
+                    let moveY = Math.sign(player.y - s.y);
+                    
+                    if (moveX !== 0 && grid[s.y][s.x + moveX] === 0) s.x += moveX;
+                    else if (moveY !== 0 && grid[s.y + moveY][s.x] === 0) s.y += moveY;
+                    
+                    if (s.x === player.x && s.y === player.y) {
+                        triggerJumpscare(inVoid ? "Biological integrity compromised by Void Entity." : "Entity manifested in reality. Critical trauma.");
+                    }
+                });
+            }
+
+            view.x += (player.x - view.x) * 0.2;
+            view.y += (player.y - view.y) * 0.2;
+            let targetAngle = [Math.PI * 1.5, 0, Math.PI * 0.5, Math.PI][player.dir];
+            let diff = targetAngle - view.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            view.angle += diff * 0.2;
+
+            const unsafe = !checkSafety();
+            hazardUI.style.visibility = unsafe ? "visible" : "hidden";
+            playWarningSound(unsafe);
+            flickerVal = Math.random() > 0.98 ? 0.3 : flickerVal + (1 - flickerVal) * 0.1;
+        }
+
+        function drawJumpscare() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const sx = (Math.random() - 0.5) * 50;
+            const sy = (Math.random() - 0.5) * 50;
+
+            ctx.fillStyle = Math.random() > 0.5 ? "#000" : "#220000";
+            ctx.fillRect(0,0,w,h);
+            
+            ctx.save();
+            ctx.translate(sx, sy);
+            
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(w*0.2, h*0.2, w*0.2, h*0.4);
+            ctx.fillRect(w*0.6, h*0.2, w*0.2, h*0.4);
+            ctx.fillRect(w*0.2, h*0.7, w*0.6, h*0.2);
+            
+            if(Math.random()>0.2) {
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(w*0.25, h*0.35, w*0.05, h*0.05);
+                ctx.fillRect(w*0.65, h*0.35, w*0.05, h*0.05);
+            }
+            
+            ctx.fillStyle = "rgba(255,255,255,0.3)";
+            for(let i=0; i<20; i++) {
+                ctx.fillRect(0, Math.random()*h, w, 2);
+            }
+            
+            ctx.restore();
+        }
+
+        function draw() {
+            if (isJumpscaring) {
+                drawJumpscare();
+                return;
+            }
+
+            // Draw Floor/Ceiling
+            ctx.fillStyle = inVoid ? "#0a0000" : "#000308";
+            ctx.fillRect(0, 0, 720, 400);
+
+            // Screen Shake calculation
+            let activeStalkers = stalkers.filter(s => s.active).length > 0;
+            let shakeX = (inVoid && activeStalkers) ? (Math.random() - 0.5) * 3 : 0;
+            let shakeY = (inVoid && activeStalkers) ? (Math.random() - 0.5) * 3 : 0;
+
+            const grid = inVoid ? voidGrid : realityGrid;
+            // Define base colors
+            const baseR = inVoid ? 0.7 : 0.2;
+            const baseG = inVoid ? 0.1 : 0.4;
+            const baseB = inVoid ? 0.1 : 0.6;
+            const viewDist = inVoid ? 7 : 10;
+
+            // --- RAYCASTING LOOP ---
+            for (let i = 0; i < 120; i++) {
+                let rayAngle = (view.angle - 0.6) + (i/120) * 1.2;
+                let dist = 0, hit = 0;
+                let cx = Math.cos(rayAngle), cy = Math.sin(rayAngle);
+                
+                // Ray Steps
+                while(hit === 0 && dist < viewDist) {
+                    dist += 0.05;
+                    let tx = Math.floor(view.x + 0.5 + cx * dist), ty = Math.floor(view.y + 0.5 + cy * dist);
+                    
+                    if (grid[ty] && grid[ty][tx] === 1) hit = 1;      // Wall
+                    else if (grid[ty] && grid[ty][tx] === 2) hit = 2; // Key
+                    else if (grid[ty] && grid[ty][tx] === 3) hit = 3; // Exit
+                    else {
+                        for(let s of stalkers) {
+                            if (tx === s.x && ty === s.y && s.active && dist > 0.3) {
+                                hit = 4; // Stalker Hit
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Calculate Height and Brightness
+                let h = canvas.height / (dist * Math.cos(rayAngle - view.angle));
+                let b = Math.max(0, 255 - (dist * (255/viewDist))) * flickerVal;
+                
+                // --- PROCEDURAL TEXTURING LOGIC ---
+                // 1. Calculate precise hit location to determine texture coordinates
+                let hitX = view.x + 0.5 + cx * dist;
+                let hitY = view.y + 0.5 + cy * dist;
+                
+                // 2. Determine if we hit a Vertical (Side) or Horizontal (Front) face
+                // We check which fractional part is closer to an edge (0 or 1)
+                // If X is approx integer (dist to edge is small), it's a side wall.
+                let xFract = hitX - Math.floor(hitX);
+                let yFract = hitY - Math.floor(hitY);
+                let xDistEdge = Math.min(xFract, 1 - xFract);
+                let yDistEdge = Math.min(yFract, 1 - yFract);
+                let isSideWall = xDistEdge < yDistEdge;
+
+                // 3. Fake Lighting: Darken Side walls to simulate directional light/corner shadows
+                if(isSideWall) b *= 0.75;
+
+                // 4. "Panel" Effect: Darken the edges of the block
+                // texCoord is where we are on the wall face (0.0 to 1.0)
+                let texCoord = isSideWall ? yFract : xFract;
+                if (texCoord < 0.05 || texCoord > 0.95) b *= 0.6; // Dark edges (Grouts)
+
+                // 5. "Grit" Noise: Randomly darken strips to simulate dirt/texture
+                if (Math.random() > 0.8) b *= 0.9;
+
+                let x = i * 6 + shakeX;
+                let y = (canvas.height - h)/2 + shakeY;
+
+                // --- DRAWING ---
+// --- DRAWING ---
+                if (hit === 1) { 
+                    if (inVoid) {
+                        // --- HELL DIMENSION: SOLID RED + TEXT OVERLAY ---
+                        
+                        // 1. Draw the SOLID RED WALL first (The base layer)
+                        // We use 'b' (brightness) to keep the depth shading so it looks 3D
+                        ctx.fillStyle = `rgb(${b}, 0, 0)`; 
+                        ctx.fillRect(x, y, 7, h);
+
+                        // 2. TEXT OVERLAY (Graffiti style)
+                        const fontSize = Math.max(10, h / 8); 
+                        ctx.font = `bold ${fontSize}px monospace`;
+                        ctx.textAlign = "center";
+                        
+                        const phrases = ["You will DIE", "GUILTY", "You're a murderer", "IT HURTS", "WHY?"];
+                        
+                        // Logic to pick the phrase
+                        const wallID = Math.floor(hitX) + Math.floor(hitY);
+                        const timeIndex = Math.floor(Date.now() / 6000); 
+                        const phraseIndex = (wallID + timeIndex) % phrases.length;
+                        const currentText = phrases[phraseIndex];
+
+                        // Slow scroll offset
+                        const rainOffset = Math.floor((hitX * 10) + (hitY * 10) + (Date.now() / 400));
+
+                        const charCount = Math.floor(h / fontSize);
+                        
+                        for(let j = 0; j < charCount; j++) {
+                            // Calculate Opacity: Text fades out further away
+                            // We start fading sooner (dist/5) so far away walls look solid red
+                            let alpha = Math.max(0, (1 - (dist/5)) * 0.6);
+                            
+                            if (alpha > 0) {
+                                const charIndex = (j + rainOffset) % currentText.length;
+                                const char = currentText[charIndex];
+
+                                if (char !== ' ') {
+                                    // 3. Draw Text in BLACK (easier on eyes than glowing white)
+                                    ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+                                    ctx.fillText(char, x + 3.5, y + (j * fontSize) + fontSize);
+                                }
+                            }
+                        }
+                        
+                    } else {
+                        // --- REALITY: STANDARD WALLS ---
+                        ctx.fillStyle = `rgb(${b*baseR}, ${b*baseG}, ${b*baseB})`;
+                        ctx.fillRect(x, y, 7, h);
+                    }
+                }
+                else if (hit === 2) { 
+                    // --- PROCEDURAL KEY SPRITE ---
+                    
+                    // 1. Bobbing Animation (Floating effect)
+                    // We offset the Y position based on time
+                    const bob = Math.sin(Date.now() / 300) * (h * 0.05);
+                    const keyY = y + bob;
+
+                    // 2. Draw "Glass" Container 
+                    // (Semi-transparent black so it feels like a floating object, not a void)
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; 
+                    ctx.fillRect(x, keyY + h*0.1, 7, h*0.8);
+
+                    // 3. Define Key Shape based on texture coordinate (texCoord)
+                    // texCoord is 0.0 (left) to 1.0 (right) of the block
+                    ctx.fillStyle = `rgb(${b}, ${b}, 0)`; // Gold Color
+                    
+                    let isKeyPixel = false;
+                    
+                    // SHAFT: Vertical line in the center (approx 45% to 55% width)
+                    // Spans from top (20%) to bottom (80%)
+                    if (texCoord > 0.45 && texCoord < 0.55) {
+                        ctx.fillRect(x, keyY + h * 0.2, 7, h * 0.6);
+                    }
+
+                    // HEAD: Diamond shape at the top
+                    // We simply draw a wider box at the top 
+                    if (texCoord > 0.3 && texCoord < 0.7) {
+                        // Creating a "hole" in the key head using logic (Head is 20% to 40% height)
+                        // Only draw if NOT in the very center (creating a loop effect)
+                        if (texCoord < 0.45 || texCoord > 0.55) {
+                             ctx.fillRect(x, keyY + h * 0.2, 7, h * 0.2);
+                        }
+                        // Connect the top of the loop
+                        ctx.fillRect(x, keyY + h * 0.2, 7, h * 0.05);
+                    }
+
+                    // TEETH: Bumps on the bottom right of the shaft
+                    // Located at 60% and 75% down the shaft, sticking out to the right
+                    if (texCoord > 0.55 && texCoord < 0.75) {
+                        // Tooth 1
+                        ctx.fillRect(x, keyY + h * 0.6, 7, h * 0.05);
+                        // Tooth 2
+                        ctx.fillRect(x, keyY + h * 0.7, 7, h * 0.05);
+                    }
+                }
+                else if (hit === 3) { 
+                    // Exit (Green/Dim)
+                    ctx.fillStyle = (keysCollected >= keysNeeded) ? `rgb(0, ${b}, 0)` : `rgb(${b*0.2}, ${b*0.2}, ${b*0.2})`; 
+                    ctx.fillRect(x, y, 7, h);
+                } 
+                else if (hit === 4) { 
+                    // Stalker
+                    drawStalkerColumn(x, y, h, dist);
+                } 
+            }
+
+            // Minimap
+            drawMinimap();
+        }
+
+        // --- NEW HELPER: SCARY STALKER RENDERER ---
+        function drawStalkerColumn(x, y, h, dist) {
+            // 1. Jitter the height to make it look unstable
+            let jitterH = h * (1 + (Math.random() - 0.5) * 0.1); 
+            let jitterY = y + (h - jitterH) / 2;
+
+            // 2. Draw a "Void Static" texture
+            // Instead of a solid color, we draw random noise lines
+            const pixelSize = Math.max(2, h / 20); // Scale noise pixels by distance
+            
+            for(let py = 0; py < jitterH; py += pixelSize) {
+                let rand = Math.random();
+                
+                // Color Palette: Glitchy Red, Black, and Static White
+                if(rand > 0.9) ctx.fillStyle = "#fff";       // Static Spark
+                else if(rand > 0.6) ctx.fillStyle = "#ff0000"; // Blood Red
+                else if(rand > 0.3) ctx.fillStyle = "#330000"; // Dried Blood
+                else ctx.fillStyle = "#000";                 // Void Black
+                
+                // Draw the slice
+                ctx.fillRect(x, jitterY + py, 7, pixelSize);
+            }
+
+            // 3. Add a faint red glow around the edges (Simulated by drawing a larger, low-opacity box behind)
+            // Only do this if close enough to save performance
+            if(dist < 5) {
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter"; // Additive blending for glow
+                ctx.fillStyle = `rgba(255, 0, 0, ${0.3 / dist})`; // Fade glow with distance
+                ctx.fillRect(x - 2, jitterY, 11, jitterH);
+                ctx.restore();
+            }
+        }
+
+        // Moved Minimap to separate function for cleanliness
+        function drawMinimap() {
+            // Configuration for Map Size and Positioning
+            const ms = 6; // Map Scale (Pixel size of each block)
+            const mapWidthPx = (MAP_W * ms) + 10;
+            const mapHeightPx = (MAP_H * ms) + 10;
+
+            // Define positions
+            const leftX = 20; // Top Left corner
+            const rightX = canvas.width - mapWidthPx - 20; // Top Right corner
+            const yPos = 20;
+
+            // --- HELPER TO DRAW A SINGLE MAP ---
+            function renderMapAt(offsetX, offsetY, gridType, label) {
+                const grid = (gridType === 'void') ? voidGrid : realityGrid;
+                
+                // 1. Background & Label
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(offsetX - 5, offsetY - 5, mapWidthPx, mapHeightPx);
+                
+                // Set Label Color (Red for Hell, Blueish for Purgatory)
+                ctx.fillStyle = (gridType === 'void') ? "#ff3333" : "#4444ff";
+                ctx.font = "10px monospace";
+                ctx.fillText(label, offsetX, offsetY + mapHeightPx + 8);
+
+                // 2. Draw Walls
+                for (let y = 0; y < MAP_H; y++) {
+                    for (let x = 0; x < MAP_W; x++) {
+                        if (grid[y][x] === 1) ctx.fillStyle = (gridType === 'void') ? "#330000" : "#0a1a2a";
+                        else if (grid[y][x] === 2) ctx.fillStyle = "#aaaa00"; // Key
+                        else if (grid[y][x] === 3) ctx.fillStyle = "#008800"; // Exit
+                        else ctx.fillStyle = "#020202"; // Floor
+                        
+                        ctx.fillRect(offsetX + x * ms, offsetY + y * ms, ms - 1, ms - 1);
+                    }
+                }
+
+                // 3. Draw Player
+                let px = offsetX + player.x * ms + ms / 2;
+                let py = offsetY + player.y * ms + ms / 2;
+
+                // Highlight player based on which dimension they are actually IN
+                const isCurrentDim = (inVoid && gridType === 'void') || (!inVoid && gridType === 'reality');
+                ctx.fillStyle = isCurrentDim ? "#fff" : "#555"; 
+                ctx.fillRect(offsetX + player.x * ms, offsetY + player.y * ms, ms - 1, ms - 1);
+
+                // 4. Flashlight Cone (Only draw bright if in that dimension)
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.fillStyle = isCurrentDim ? "rgba(255, 255, 200, 0.4)" : "rgba(100, 100, 100, 0.1)";
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, ms * 3, view.angle - 0.6, view.angle + 0.6);
+                ctx.fill();
+                ctx.restore();
+
+                // 5. Stalkers (Only visible on Void Map or if active)
+                stalkers.forEach(s => {
+                    let visible = false;
+                    if (gridType === 'void') visible = true; 
+                    if (gridType === 'reality' && s.active) visible = true;
+
+                    if (visible && Math.random() > 0.4) {
+                        ctx.fillStyle = "#ff0000";
+                        ctx.fillRect(offsetX + s.x * ms, offsetY + s.y * ms, ms - 1, ms - 1);
+                    }
+                });
+            }
+
+            // --- EXECUTE DRAWING ---
+            renderMapAt(leftX, yPos, 'reality', "PURGATORY");
+            renderMapAt(rightX, yPos, 'void', "HELL");
+        }
+
+        // --- FIXED TIME STEP LOOP ---
+        let lastTime = 0;
+        let accumulator = 0;
+        const TARGET_UPS = 60; // Updates Per Second (Logic Tick Rate)
+        const STEP = 1000 / TARGET_UPS; // ~16.66ms per tick
+
+        function loop(timestamp) {
+            // Initial setup for the first frame
+            if (!lastTime) lastTime = timestamp;
+
+            // Calculate how much time has passed since the last frame
+            let deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Cap deltaTime to prevent "spiral of death" if the tab hangs or is backgrounded
+            if (deltaTime > 100) deltaTime = 100;
+
+            accumulator += deltaTime;
+
+            // Run the game logic in fixed chunks. 
+            // Even if you have 165Hz, this while loop limits update() to run exactly 60 times/sec equivalent.
+            while (accumulator >= STEP) {
+                update(); 
+                accumulator -= STEP;
+            }
+
+            // Draw as fast as the monitor allows (165Hz, 60Hz, etc.)
+            draw();
+            
+            requestAnimationFrame(loop);
+        }
+
+        // Start the loop passing the timestamp
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
