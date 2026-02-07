@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Persona 1 - Sensory Protocol</title>
+    <style>
+        body { 
+            background: #020202; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            color: #ff3333; 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            overflow: hidden; 
+            height: 100vh; 
+            justify-content: center;
+        }
+
+        #game-container { 
+            position: relative; 
+            border: 2px solid #440000; 
+            box-shadow: 0 0 20px #ff000033;
+            width: 90vw; 
+            max-width: 1400px; 
+            aspect-ratio: 720/400; 
+        }
+
+        canvas { 
+            display: block; 
+            background: #000; 
+            image-rendering: pixelated; 
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui { 
+            width: 90vw; 
+            max-width: 1400px;
+            padding: 15px; 
+            background: #050000; 
+            border: 2px solid #440000; 
+            border-top: none; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-sizing: border-box; 
+        }
+
+        #banner { position: absolute; top: 10px; width: 100%; text-align: center; font-size: 24px; font-weight: bold; text-shadow: 2px 2px #000; pointer-events: none; color: #ff0000; z-index: 5; }
+        
+        #msg-overlay { position: absolute; bottom: 15%; width: 100%; text-align: center; color: #ff3333; font-size: 2vw; font-weight: bold; text-shadow: 2px 2px #000; pointer-events: none; z-index: 20; letter-spacing: 2px; }
+
+        #game-over-screen, #win-screen, #level-screen, #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 0, 0, 0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; text-align: center; }
+        
+        /* Specific Styles for Start Screen */
+        #start-screen { display: flex; z-index: 200; border: 1px solid #440000; }
+        .title-huge { font-size: 4vw; color: #ff3333; text-shadow: 0 0 10px #ff0000; margin-bottom: 10px; letter-spacing: 5px; }
+        .subtitle { color: #aa0000; margin-bottom: 40px; font-size: 1.2vw; }
+        .controls-box { text-align: left; border: 1px solid #440000; padding: 20px; background: #0a0000; margin-bottom: 40px; }
+        .control-row { margin: 10px 0; font-size: 1.2vw; color: #cc5555; }
+        .key-badge { border: 1px solid #ff3333; padding: 2px 8px; color: #fff; margin-right: 10px; background: #220000; }
+        .start-prompt { animation: blink 1s infinite; color: #ffcc00; font-size: 1.5vw; cursor: pointer; }
+
+        #win-screen { background: rgba(0, 40, 0, 0.95); color: #00ff00; }
+        #level-screen { background: #000; color: #ffcc00; z-index: 90; }
+        .hazard { color: #ffff00; animation: blink 0.2s infinite; visibility: hidden; font-weight: bold; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+
+        /* Button Styling for Game Over */
+        .btn-container { display: flex; gap: 40px; margin-top: 30px; }
+        .retry-btn { color: #ffcc00; cursor: pointer; border: 2px solid #ffcc00; padding: 10px 20px; transition: 0.2s; }
+        .retry-btn:hover { background: #ffcc00; color: #000; }
+        .quit-btn { color: #ff3333; cursor: pointer; border: 2px solid #ff3333; padding: 10px 20px; transition: 0.2s; }
+        .quit-btn:hover { background: #ff3333; color: #000; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="banner">SECTOR 4 - CONTAINMENT</div>
+        <div id="msg-overlay"></div>
+
+        <div id="start-screen">
+            <h1 class="title-huge">SENSORY PROTOCOL</h1>
+            <p class="subtitle">PROJECT: VOID RUNNER // VERSION 1.0</p>
+            
+            <div class="controls-box">
+                <div class="control-row"><span class="key-badge">W A S D</span> MOVE OPERATOR</div>
+                <div class="control-row"><span class="key-badge">SPACE</span> PHASE REALITY (TOGGLE)</div>
+                <div class="control-row"><span class="key-badge">E</span> INTERACT / COLLECT CORE</div>
+            </div>
+
+            <div class="start-prompt" onclick="beginGame()">[ PRESS ENTER TO INITIALIZE ]</div>
+        </div>
+
+        <div id="game-over-screen">
+            <h1 style="letter-spacing: 10px;">CRITICAL FAILURE</h1>
+            <p id="death-msg">Biological integrity compromised.</p>
+            
+            <div class="btn-container">
+                <div class="retry-btn" onclick="retryLevel()">[R] RETRY SECTOR</div>
+                <div class="quit-btn" onclick="location.reload()">[Q] SYSTEM REBOOT</div>
+            </div>
+        </div>
+
+        <div id="win-screen">
+            <h1 style="letter-spacing: 10px;">PROTOCOL COMPLETE</h1>
+            <p>Surface reached. Biological integrity maintained.</p>
+            <h2 style="color: #00ff00; cursor:pointer; margin-top: 20px;" onclick="location.reload()">REPLAY SIMULATION</h2>
+        </div>
+
+        <div id="level-screen">
+            <h1 id="level-title" style="letter-spacing: 5px;">SECTOR CLEARED</h1>
+            <p>Initializing next sector...</p>
+        </div>
+
+        <canvas id="gameCanvas" width="720" height="400"></canvas>
+    </div>
+    <div class="ui">
+        <div>
+            <div id="status">DIMENSION: REALITY</div>
+            <div id="warning" class="hazard">⚠️ COLLISION WARNING: DO NOT PHASE ⚠️</div>
+        </div>
+        <div style="border-left: 2px solid #880000; padding-left: 10px;">
+            <div id="inventory">OBJECTIVE: FIND THE VOID CORE</div>
+            <div style="font-size: 10px; color: #660000; margin-top: 5px;">WASD: MOVE | SPACE: PHASE | E: INTERACT</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const hazardUI = document.getElementById('warning');
+        const invUI = document.getElementById('inventory');
+        const banner = document.getElementById('banner');
+        const msgOverlay = document.getElementById('msg-overlay');
+
+        // --- AUDIO ENGINE ---
+        let audioCtx = null, warningOsc = null, warningGain = null;
+        let ambientOsc1 = null, ambientOsc2 = null, lfo = null, ambientGain = null;
+        let noiseBuffer = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            warningGain = audioCtx.createGain();
+            warningGain.connect(audioCtx.destination);
+            warningGain.gain.value = 0;
+
+            const bufferSize = audioCtx.sampleRate * 2; 
+            noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            playAmbientMusic();
+        }
+
+        function playAmbientMusic() {
+            if (!audioCtx) return;
+            if (ambientGain) ambientGain.disconnect(); 
+            
+            ambientGain = audioCtx.createGain();
+            ambientGain.gain.value = 0.15; 
+            ambientGain.connect(audioCtx.destination);
+
+            ambientOsc1 = audioCtx.createOscillator();
+            ambientOsc1.type = 'sawtooth';
+            ambientOsc1.frequency.value = 55; 
+            ambientOsc2 = audioCtx.createOscillator();
+            ambientOsc2.type = 'sine';
+            ambientOsc2.frequency.value = 58; 
+            lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.2; 
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 50; 
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 200; 
+            lfo.connect(filter.frequency); 
+            ambientOsc1.connect(filter);
+            ambientOsc2.connect(filter);
+            filter.connect(ambientGain);
+            ambientOsc1.start();
+            ambientOsc2.start();
+            lfo.start();
+        }
+
+        function playPhaseSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = inVoid ? 'sawtooth' : 'square';
+            osc.frequency.setValueAtTime(inVoid ? 120 : 330, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playHeartbeat(vol, pitch) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(pitch, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.12);
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.12);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+        }
+
+        function playBreath(vol, speed) {
+            if (!audioCtx || !noiseBuffer) return;
+            const src = audioCtx.createBufferSource();
+            src.buffer = noiseBuffer;
+            src.loop = true;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 600; 
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0, audioCtx.currentTime);
+            const duration = 0.6 / speed; 
+            g.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + (duration * 0.2)); 
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration); 
+            src.connect(filter);
+            filter.connect(g);
+            g.connect(audioCtx.destination);
+            src.start();
+            src.stop(audioCtx.currentTime + duration + 0.1);
+        }
+
+        function playFootstep() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(inVoid ? 40 : 80, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.04, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playCollect() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.8);
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+        }
+
+        function playStalkerSpawnSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 1.5);
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 1.5);
+        }
+
+        function playScream() {
+            if (!audioCtx) return;
+            if(ambientGain) ambientGain.gain.value = 0;
+            if(warningGain) warningGain.gain.value = 0;
+            const now = audioCtx.currentTime;
+            const duration = 1.5;
+            const osc1 = audioCtx.createOscillator();
+            const g1 = audioCtx.createGain();
+            osc1.type = 'sawtooth';
+            osc1.frequency.setValueAtTime(1500, now); 
+            osc1.frequency.exponentialRampToValueAtTime(100, now + duration); 
+            g1.gain.setValueAtTime(0.7, now); 
+            g1.gain.linearRampToValueAtTime(0, now + duration);
+            const osc2 = audioCtx.createOscillator();
+            const g2 = audioCtx.createGain();
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(1450, now); 
+            osc2.frequency.exponentialRampToValueAtTime(150, now + duration);
+            g2.gain.setValueAtTime(0.7, now); 
+            g2.gain.linearRampToValueAtTime(0, now + duration);
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            noise.loop = true;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(1.0, now); 
+            noiseGain.gain.linearRampToValueAtTime(0, now + duration);
+            osc1.connect(g1); g1.connect(audioCtx.destination);
+            osc2.connect(g2); g2.connect(audioCtx.destination);
+            noise.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+            osc1.start(); osc2.start(); noise.start();
+            osc1.stop(now + duration); osc2.stop(now + duration); noise.stop(now + duration);
+        }
+
+        function playDenied() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+            g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playWarningSound(active) {
+            if (!audioCtx) return;
+            if (active) {
+                if (!warningOsc) {
+                    warningOsc = audioCtx.createOscillator();
+                    warningOsc.type = 'sawtooth';
+                    warningOsc.frequency.setValueAtTime(40, audioCtx.currentTime);
+                    warningOsc.connect(warningGain);
+                    warningOsc.start();
+                }
+                warningGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+            } else {
+                warningGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+            }
+        }
+
+        function showMessage(text) {
+            msgOverlay.innerText = text;
+            setTimeout(() => {
+                if (msgOverlay.innerText === text) msgOverlay.innerText = "";
+            }, 3000); 
+        }
+
+        // --- MAP DATA ---
+        const levels = [
+            {
+                name: "SECTOR 4 - CONTAINMENT",
+                totalKeys: 1,
+                playerStart: { x: 1, y: 1, dir: 1 },
+                stalkerStart: { x: 23, y: 9 },
+                reality: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+                    [1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+                    [1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+                    [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,3,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                void: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+                    [1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1],
+                    [1,0,0,0,1,2,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+                    [1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+                    [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            },
+            {
+                name: "SECTOR 5 - FLUX TUNNELS",
+                totalKeys: 1,
+                playerStart: { x: 1, y: 5, dir: 0 },
+                stalkerStart: { x: 23, y: 5 },
+                reality: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+                    [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+                    [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,3,1,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                void: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            },
+            {
+                name: "SECTOR 6 - ECHO HALLS",
+                totalKeys: 1,
+                playerStart: { x: 1, y: 1, dir: 1 },
+                stalkerStart: { x: 23, y: 9 },
+                reality: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                    [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,3,1,0,0,0,1,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                void: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            },
+            {
+                name: "SECTOR 7 - THE DEEP",
+                totalKeys: 3,
+                playerStart: { x: 12, y: 5, dir: 0 },
+                stalkerStart: { x: 1, y: 1 },
+                reality: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1],
+                    [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,1,1,1,1,1,3,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1],
+                    [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                void: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            }
+        ];
+
+        // --- GAME LOGIC ---
+        let currentLevelIdx = 0;
+        let realityGrid, voidGrid;
+        let isDead = false, hasWon = false, inVoid = false, flickerVal = 1;
+        let isJumpscaring = false; 
+        let gameActive = false; // NEW STATE
+        let keysCollected = 0; 
+        let keysNeeded = 1;    
+        let frameCount = 0;
+        let player = { x: 1, y: 1, dir: 1 }; 
+        let view = { x: 1, y: 1, angle: 0 };
+        let stalker = { x: 23, y: 9, active: false };
+        const MAP_W = 25, MAP_H = 11;
+
+        // Start Logic
+        document.getElementById('start-screen').style.display = 'flex';
+
+        function beginGame() {
+            gameActive = true;
+            document.getElementById('start-screen').style.display = 'none';
+            initAudio(); // Initialize audio context on user gesture
+        }
+
+        function retryLevel() {
+            document.getElementById('game-over-screen').style.display = "none";
+            loadLevel(currentLevelIdx);
+            playAmbientMusic();
+        }
+
+        function loadLevel(idx) {
+            if (idx >= levels.length) {
+                hasWon = true;
+                if(ambientGain) ambientGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2); 
+                document.getElementById('win-screen').style.display = "flex";
+                return;
+            }
+            if (idx > 0) {
+                const lvlScreen = document.getElementById('level-screen');
+                document.getElementById('level-title').innerText = "SECTOR " + (4 + idx);
+                lvlScreen.style.display = 'flex';
+                setTimeout(() => { lvlScreen.style.display = 'none'; }, 2000);
+            }
+
+            currentLevelIdx = idx;
+            const levelData = levels[idx];
+            banner.innerText = levelData.name;
+            
+            realityGrid = JSON.parse(JSON.stringify(levelData.reality));
+            voidGrid = JSON.parse(JSON.stringify(levelData.void));
+
+            player.x = levelData.playerStart.x;
+            player.y = levelData.playerStart.y;
+            player.dir = levelData.playerStart.dir;
+            view.x = player.x; view.y = player.y;
+
+            stalker.x = levelData.stalkerStart.x;
+            stalker.y = levelData.stalkerStart.y;
+            stalker.active = false;
+
+            keysCollected = 0;
+            keysNeeded = levelData.totalKeys;
+            
+            isDead = false;
+            inVoid = false;
+            isJumpscaring = false;
+            updateInventoryText();
+            document.getElementById('status').innerText = "DIMENSION: REALITY";
+        }
+
+        function updateInventoryText() {
+            if (keysCollected >= keysNeeded) {
+                invUI.innerText = "OBJECTIVE: REACH THE SURFACE LIFT";
+                invUI.style.color = "#00ff00";
+            } else {
+                invUI.innerText = `OBJECTIVE: FIND VOID CORES (${keysCollected}/${keysNeeded})`;
+                invUI.style.color = "#ff3333";
+            }
+        }
+
+        loadLevel(0);
+
+        function checkSafety() {
+            const targetGrid = inVoid ? realityGrid : voidGrid;
+            const tile = targetGrid[player.y][player.x];
+            return tile === 0 || tile === 2 || tile === 3;
+        }
+
+        window.onkeydown = (e) => {
+            const key = e.key.toLowerCase();
+            
+            // Start Screen Handler
+            if (!gameActive) {
+                if (key === 'enter' || key === ' ') beginGame();
+                return;
+            }
+
+            initAudio(); // Fallback audio start
+            
+            // Death Screen Controls
+            if (isDead && !isJumpscaring) {
+                if (key === 'r') retryLevel();
+                if (key === 'q') location.reload();
+                return;
+            }
+
+            if (key === 'r' && !isDead) location.reload(); 
+            if (isDead || hasWon || isJumpscaring) return;
+
+            if (key === ' ') {
+                if (!checkSafety()) {
+                    killPlayer("Molecules intertwined with solid matter.");
+                } else {
+                    inVoid = !inVoid;
+                    playPhaseSound();
+                    document.getElementById('status').innerText = "DIMENSION: " + (inVoid ? "THE VOID" : "REALITY");
+                }
+            }
+
+            if (key === 'e') checkInteractions();
+
+            let dx = 0, dy = 0;
+            if (key === 'w') { dx = [0, 1, 0, -1][player.dir]; dy = [-1, 0, 1, 0][player.dir]; }
+            if (key === 's') { dx = [0, -1, 0, 1][player.dir]; dy = [1, 0, -1, 0][player.dir]; }
+            if (key === 'a') player.dir = (player.dir + 3) % 4;
+            if (key === 'd') player.dir = (player.dir + 1) % 4;
+
+            const currentGrid = inVoid ? voidGrid : realityGrid;
+            if ((dx !== 0 || dy !== 0)) {
+                let nx = player.x + dx, ny = player.y + dy;
+                if (currentGrid[ny] && (currentGrid[ny][nx] === 0 || currentGrid[ny][nx] === 2 || currentGrid[ny][nx] === 3)) {
+                    player.x = nx; player.y = ny;
+                    playFootstep();
+                }
+            }
+        };
+
+        function triggerJumpscare(msg) {
+            isJumpscaring = true;
+            playScream();
+            setTimeout(() => {
+                killPlayer(msg);
+            }, 1500);
+        }
+
+        function killPlayer(msg) {
+            isDead = true;
+            isJumpscaring = false; 
+            if(warningGain) warningGain.gain.value = 0;
+            if(ambientGain) ambientGain.gain.value = 0; 
+            const screen = document.getElementById('game-over-screen');
+            document.getElementById('death-msg').innerText = msg;
+            screen.style.display = "flex";
+        }
+
+        function checkInteractions() {
+            if (inVoid && voidGrid[player.y][player.x] === 2) {
+                keysCollected++;
+                voidGrid[player.y][player.x] = 0; 
+                playCollect();
+                
+                if (!stalker.active) {
+                    stalker.active = true;
+                    playStalkerSpawnSound();
+                    showMessage("HE'S COMING");
+                }
+
+                updateInventoryText();
+            }
+            
+            if (!inVoid && realityGrid[player.y][player.x] === 3) {
+                if (keysCollected >= keysNeeded) {
+                    loadLevel(currentLevelIdx + 1);
+                } else {
+                    playDenied();
+                    showMessage(`LOCKED: ${keysNeeded - keysCollected} MORE CORES REQUIRED`);
+                }
+            }
+        }
+
+        function update() {
+            if (!gameActive || isDead || hasWon || isJumpscaring) return;
+            frameCount++;
+
+            let dist = Math.hypot(player.x - stalker.x, player.y - stalker.y);
+            let urgency = stalker.active ? Math.max(0, 20 - dist) : 0;
+            let heartCycle = Math.max(18, 70 - (urgency * 2.5)); 
+            heartCycle = Math.floor(heartCycle);
+
+            if (frameCount % heartCycle === 0) {
+               let vol = 0.08 + (urgency * 0.02); 
+               let pitch = 40 + (urgency * 2); 
+               playHeartbeat(vol, pitch); 
+               setTimeout(() => { if(!isDead) playHeartbeat(vol * 0.8, pitch + 10); }, 150 - (urgency * 5)); 
+            }
+            
+            if (stalker.active) {
+                let breathCycle = Math.floor(heartCycle * 1.5);
+                if (frameCount % breathCycle === 0) {
+                    let breathVol = 0.05 + (urgency * 0.015);
+                    let breathSpeed = 1 + (urgency * 0.1); 
+                    playBreath(breathVol, breathSpeed);
+                }
+            }
+
+            let moveRate = inVoid ? 35 : 120;
+            
+            if (stalker.active && frameCount % moveRate === 0) {
+                let moveX = Math.sign(player.x - stalker.x);
+                let moveY = Math.sign(player.y - stalker.y);
+                const grid = inVoid ? voidGrid : realityGrid;
+                
+                if (moveX !== 0 && grid[stalker.y][stalker.x + moveX] === 0) stalker.x += moveX;
+                else if (moveY !== 0 && grid[stalker.y + moveY][stalker.x] === 0) stalker.y += moveY;
+                
+                if (stalker.x === player.x && stalker.y === player.y) {
+                    triggerJumpscare(inVoid ? "Biological integrity compromised by Void Entity." : "Entity manifested in reality. Critical trauma.");
+                }
+            }
+
+            view.x += (player.x - view.x) * 0.2;
+            view.y += (player.y - view.y) * 0.2;
+            let targetAngle = [Math.PI * 1.5, 0, Math.PI * 0.5, Math.PI][player.dir];
+            let diff = targetAngle - view.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            view.angle += diff * 0.2;
+
+            const unsafe = !checkSafety();
+            hazardUI.style.visibility = unsafe ? "visible" : "hidden";
+            playWarningSound(unsafe);
+            flickerVal = Math.random() > 0.98 ? 0.3 : flickerVal + (1 - flickerVal) * 0.1;
+        }
+
+        function drawJumpscare() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const sx = (Math.random() - 0.5) * 50;
+            const sy = (Math.random() - 0.5) * 50;
+
+            ctx.fillStyle = Math.random() > 0.5 ? "#000" : "#220000";
+            ctx.fillRect(0,0,w,h);
+            
+            ctx.save();
+            ctx.translate(sx, sy);
+            
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(w*0.2, h*0.2, w*0.2, h*0.4);
+            ctx.fillRect(w*0.6, h*0.2, w*0.2, h*0.4);
+            ctx.fillRect(w*0.2, h*0.7, w*0.6, h*0.2);
+            
+            if(Math.random()>0.2) {
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(w*0.25, h*0.35, w*0.05, h*0.05);
+                ctx.fillRect(w*0.65, h*0.35, w*0.05, h*0.05);
+            }
+            
+            ctx.fillStyle = "rgba(255,255,255,0.3)";
+            for(let i=0; i<20; i++) {
+                ctx.fillRect(0, Math.random()*h, w, 2);
+            }
+            
+            ctx.restore();
+        }
+
+        function draw() {
+            if (isJumpscaring) {
+                drawJumpscare();
+                return;
+            }
+
+            ctx.fillStyle = inVoid ? "#0a0000" : "#000308";
+            ctx.fillRect(0, 0, 720, 400);
+
+            let shakeX = (inVoid && stalker.active) ? (Math.random() - 0.5) * 3 : 0;
+            let shakeY = (inVoid && stalker.active) ? (Math.random() - 0.5) * 3 : 0;
+
+            const grid = inVoid ? voidGrid : realityGrid;
+            const colorProfile = inVoid ? {r:0.7,g:0.1,b:0.1} : {r:0.2,g:0.4,b:0.6};
+            const viewDist = inVoid ? 7 : 10;
+
+            for (let i = 0; i < 120; i++) {
+                let rayAngle = (view.angle - 0.6) + (i/120) * 1.2;
+                let dist = 0, hit = 0;
+                let cx = Math.cos(rayAngle), cy = Math.sin(rayAngle);
+                
+                while(hit === 0 && dist < viewDist) {
+                    dist += 0.05;
+                    let tx = Math.floor(view.x + 0.5 + cx * dist), ty = Math.floor(view.y + 0.5 + cy * dist);
+                    if (grid[ty] && grid[ty][tx] === 1) hit = 1;
+                    else if (grid[ty] && grid[ty][tx] === 2) hit = 2;
+                    else if (grid[ty] && grid[ty][tx] === 3) hit = 3;
+                    else if (tx === stalker.x && ty === stalker.y && stalker.active && dist > 0.3) hit = 4;
+                }
+
+                let h = canvas.height / (dist * Math.cos(rayAngle - view.angle));
+                let b = Math.max(0, 255 - (dist * (255/viewDist))) * flickerVal;
+                
+                if (hit === 1) ctx.fillStyle = `rgb(${b*colorProfile.r}, ${b*colorProfile.g}, ${b*colorProfile.b})`;
+                else if (hit === 2) ctx.fillStyle = `rgb(${b}, ${b}, 0)`; 
+                else if (hit === 3) ctx.fillStyle = (keysCollected >= keysNeeded) ? `rgb(0, ${b}, 0)` : `rgb(${b*0.2}, ${b*0.2}, ${b*0.2})`; 
+                else if (hit === 4) ctx.fillStyle = `rgb(${b*1.2}, 0, 0)`; 
+                
+                ctx.fillRect(i * 6 + shakeX, (canvas.height - h)/2 + shakeY, 7, h);
+            }
+
+            const ms = 6, ox = 20, oy = 20;
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(ox-5, oy-5, (MAP_W * ms)+10, (MAP_H * ms)+10);
+            for(let y=0; y<MAP_H; y++) {
+                for(let x=0; x<MAP_W; x++) {
+                    if (grid[y][x] === 1) ctx.fillStyle = inVoid ? "#330000" : "#0a1a2a";
+                    else if (grid[y][x] === 2) ctx.fillStyle = "#aaaa00";
+                    else if (grid[y][x] === 3) ctx.fillStyle = "#008800";
+                    else ctx.fillStyle = "#020202";
+                    ctx.fillRect(ox + x*ms, oy + y*ms, ms-1, ms-1);
+                }
+            }
+            ctx.fillStyle = "#fff"; ctx.fillRect(ox+player.x*ms, oy+player.y*ms, ms-1, ms-1);
+            
+            if (stalker.active && Math.random() > 0.4) {
+                ctx.fillStyle = "#ff0000";
+                ctx.fillRect(ox+stalker.x*ms, oy+stalker.y*ms, ms-1, ms-1);
+            }
+        }
+
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+        loop();
+    </script>
+</body>
+</html>
