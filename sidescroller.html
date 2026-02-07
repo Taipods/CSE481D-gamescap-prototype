@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidescroller - Final Version</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; background: #5c94fc; margin: 20px auto; border: 4px solid #333; }
+        #ui { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); color: white; display: flex; gap: 20px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; pointer-events: none; z-index: 100; border: 1px solid #fff; }
+        #msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: gold; text-align: center; pointer-events: none; text-shadow: 3px 3px 0px #000; z-index: 200; font-size: 2.5em; }
+        #boss-ui { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); width: 400px; display: none; z-index: 100; }
+        .bar-bg { width: 100%; height: 20px; background: #333; border: 2px solid #fff; border-radius: 5px; overflow: hidden; }
+        #boss-hp-fill { width: 100%; height: 100%; background: linear-gradient(to right, #e74c3c, #ff4d4d); }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div>HP: <span id="hp">100</span></div>
+    <div>Level: <span id="lvl">1</span></div>
+    <div>Coins: <span id="coins">0</span></div>
+    <div>Attack: <span id="atk">10</span></div>
+</div>
+
+<div id="boss-ui">
+    <div style="color: white; text-align: center; margin-bottom: 5px; font-weight: bold; letter-spacing: 2px;">THE GUARDIAN</div>
+    <div class="bar-bg"><div id="boss-hp-fill"></div></div>
+</div>
+
+<div id="msg"></div>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 450;
+
+let gameState = {
+    currentLevel: 1,
+    maxLevels: 3,
+    coins: 0,
+    attackPower: 10,
+    active: true,
+    levelTransitioning: false,
+    shake: 0
+};
+
+const keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+class Flag {
+    constructor(x) {
+        this.x = x;
+        this.y = canvas.height - 220;
+        this.w = 10;
+        this.h = 200;
+        this.flagY = this.y + 10;
+        this.reached = false;
+        this.visible = true; 
+    }
+    update(player) {
+        if (!this.visible) return;
+        if (!this.reached && player.x + player.w > this.x && player.x < this.x + this.w) {
+            this.reached = true;
+            gameState.levelTransitioning = true;
+        }
+        if (this.reached && this.flagY < this.y + this.h - 30) {
+            this.flagY += 3;
+        }
+    }
+    draw() {
+        if (!this.visible) return;
+        ctx.fillStyle = '#ddd';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath(); ctx.arc(this.x + 5, this.y, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(this.x + 10, this.flagY, 30, 20);
+    }
+}
+
+class Platform {
+    constructor(x, y, w, h) {
+        this.x = x; this.y = y; this.w = w; this.h = h;
+    }
+    draw() {
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(this.x, this.y, this.w, 6);
+    }
+}
+
+class Player {
+    constructor() { this.reset(); }
+    reset() {
+        this.x = 50; this.y = 300; this.w = 30; this.h = 45;
+        this.vx = 0; this.vy = 0;
+        this.hp = 100;
+        this.grounded = false;
+        this.direction = 1;
+        this.isAttacking = false;
+        this.iFrames = 0;
+    }
+    update(platforms, enemies) {
+        if (gameState.levelTransitioning) return;
+        if (this.iFrames > 0) this.iFrames--;
+
+        if (keys['ArrowRight'] || keys['KeyD']) { this.vx += 0.8; this.direction = 1; }
+        if (keys['ArrowLeft'] || keys['KeyA']) { this.vx -= 0.8; this.direction = -1; }
+        if ((keys['ArrowUp'] || keys['KeyW']) && this.grounded) { this.vy = -13; this.grounded = false; }
+        if (keys['Space'] && !this.isAttacking) this.attack(enemies);
+
+        this.vx *= 0.85;
+        this.vy += 0.7;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        this.grounded = false;
+        platforms.concat([{x:0, y:canvas.height-20, w:canvas.width, h:20}]).forEach(p => {
+            if (this.x < p.x + p.w && this.x + this.w > p.x &&
+                this.y + this.h > p.y && this.y + this.h < p.y + p.h + this.vy) {
+                this.y = p.y - this.h;
+                this.vy = 0;
+                this.grounded = true;
+            }
+        });
+
+        if (this.x < 0) this.x = 0;
+        if (this.x > canvas.width - this.w) this.x = canvas.width - this.w;
+        if (this.hp <= 0) { this.reset(); initLevel(); }
+    }
+    attack(enemies) {
+        this.isAttacking = true;
+        enemies.forEach(en => {
+            let hitX = this.direction === 1 ? this.x + this.w : this.x - 50;
+            if (hitX < en.x + en.w && hitX + 50 > en.x && this.y < en.y + en.h && this.y + this.h > en.y) {
+                en.hp -= gameState.attackPower;
+                en.vx = this.direction * 5;
+                if (en.isBoss) {
+                    gameState.shake = 10;
+                    // Update Boss HP Bar immediately
+                    document.getElementById('boss-hp-fill').style.width = Math.max(0, (en.hp / en.maxHp) * 100) + "%";
+                }
+            }
+        });
+        setTimeout(() => this.isAttacking = false, 150);
+    }
+    draw() {
+        if (this.iFrames % 4 > 1) return;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        if (this.isAttacking) {
+            ctx.fillStyle = 'yellow';
+            ctx.fillRect(this.direction === 1 ? this.x + this.w : this.x - 50, this.y + 10, 50, 10);
+        }
+    }
+}
+
+class Enemy {
+    constructor(x, y, range, isBoss = false) {
+        this.x = x; this.y = y; 
+        this.isBoss = isBoss;
+        this.w = isBoss ? 60 : 30; 
+        this.h = isBoss ? 90 : 45;
+        this.vx = isBoss ? 3 : 2; 
+        this.hp = isBoss ? 200 : 1; // Standard enemies are now 1 HP
+        this.maxHp = this.hp;
+        this.startX = x;
+        this.range = range;
+    }
+    update(player) {
+        this.x += this.vx;
+        if (Math.abs(this.x - this.startX) > this.range) this.vx *= -1;
+
+        if (player.iFrames === 0 && !gameState.levelTransitioning &&
+            this.x < player.x + player.w && this.x + this.w > player.x &&
+            this.y < player.y + player.h && this.y + this.h > player.y) {
+            player.hp -= this.isBoss ? 40 : 20;
+            player.iFrames = 60;
+            player.vx = (player.x < this.x) ? -15 : 15;
+            updateUI();
+        }
+    }
+    draw() {
+        ctx.fillStyle = this.isBoss ? '#8e44ad' : '#c0392b';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+    }
+}
+
+let player = new Player();
+let platforms = [];
+let enemies = [];
+let coins = [];
+let flag;
+
+function initLevel() {
+    gameState.levelTransitioning = false;
+    player.x = 50;
+    flag = new Flag(720);
+    
+    if (gameState.currentLevel === 1) {
+        platforms = [new Platform(200, 320, 150, 20), new Platform(450, 220, 150, 20)];
+        enemies = [new Enemy(450, 175, 80), new Enemy(200, 430 - 45, 100)];
+        coins = [{x: 275, y: 280}, {x: 525, y: 180}];
+        document.getElementById('boss-ui').style.display = 'none';
+        flag.visible = true;
+    } else if (gameState.currentLevel === 2) {
+        platforms = [new Platform(150, 330, 100, 20), new Platform(350, 240, 100, 20), new Platform(550, 150, 100, 20)];
+        enemies = [new Enemy(350, 195, 50), new Enemy(550, 105, 50)];
+        coins = [{x: 400, y: 200}, {x: 600, y: 110}];
+        document.getElementById('boss-ui').style.display = 'none';
+        flag.visible = true;
+    } else {
+        platforms = [new Platform(100, 350, 600, 20)];
+        enemies = [new Enemy(400, 350 - 90, 150, true)];
+        coins = [{x: 150, y: 300}, {x: 650, y: 300}];
+        flag.visible = false;
+        document.getElementById('boss-ui').style.display = 'block';
+        document.getElementById('boss-hp-fill').style.width = "100%";
+    }
+    updateUI();
+}
+
+function updateUI() {
+    document.getElementById('hp').innerText = player.hp;
+    document.getElementById('lvl').innerText = gameState.currentLevel;
+    document.getElementById('coins').innerText = gameState.coins;
+    document.getElementById('atk').innerText = gameState.attackPower;
+}
+
+function loop() {
+    if (!gameState.active) return;
+    
+    ctx.save();
+    if (gameState.shake > 0) {
+        ctx.translate(Math.random()*gameState.shake, Math.random()*gameState.shake);
+        gameState.shake *= 0.9;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Background Sky
+    ctx.fillStyle = '#5c94fc';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Floor
+    ctx.fillStyle = '#2ecc71';
+    ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+
+    platforms.forEach(p => p.draw());
+    flag.update(player);
+    flag.draw();
+    
+    enemies.forEach((en, i) => {
+        en.update(player);
+        en.draw();
+        if (en.hp <= 0) {
+            if (en.isBoss) {
+                flag.visible = true;
+                document.getElementById('boss-ui').style.display = 'none';
+            }
+            enemies.splice(i, 1);
+        }
+    });
+
+    coins.forEach((c, i) => {
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, Math.PI*2); ctx.fill();
+        if (Math.hypot(player.x - c.x, player.y - (c.y - 15)) < 30) {
+            coins.splice(i, 1);
+            gameState.coins++;
+            gameState.attackPower += 5;
+            updateUI();
+        }
+    });
+
+    player.update(platforms, enemies);
+    player.draw();
+    ctx.restore();
+
+    if (gameState.levelTransitioning && flag.flagY >= flag.y + flag.h - 40) {
+        if (gameState.currentLevel < gameState.maxLevels) {
+            gameState.currentLevel++;
+            initLevel();
+        } else {
+            gameState.active = false;
+            document.getElementById('msg').innerHTML = "<h1>VICTORY!</h1><p>The stage is cleared.</p>";
+        }
+    }
+
+    requestAnimationFrame(loop);
+}
+
+initLevel();
+loop();
+</script>
+</body>
+</html>
