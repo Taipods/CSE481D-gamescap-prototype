@@ -40,13 +40,27 @@
             font-size: 2rem;
         }
 
+        /* SECTION DIVIDERS */
+        .section-title {
+            width: 100%;
+            max-width: 1000px;
+            margin: 40px 0 10px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+            color: #fff;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding-left: 20px;
+        }
+
         .container {
             max-width: 1000px;
             width: 100%;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 25px;
-            padding: 40px 20px;
+            padding: 20px;
             box-sizing: border-box;
         }
 
@@ -130,6 +144,7 @@
     <p>Select a simulation to initialize</p>
 </header>
 
+<div class="section-title">LATEST BUILDS</div>
 <div class="container">
     
     <div class="card">
@@ -148,15 +163,15 @@
 
     <div class="card">
         <div><span class="tag">ACTION / RPG</span></div>
-        <h2>Extinction Protocol</h2>
-        <p>A dino-themed roguelike featuring economy updates, weapon tiers, and sector clearing.</p>
+        <h2>Extinction Protocol (8.0)</h2>
+        <p>Latest dino-themed roguelike build featuring economy updates and weapon tiers.</p>
         <a href="dino-game.html" class="launch-btn">INITIALIZE 8.0</a>
     </div>
 
     <div class="card">
         <div><span class="tag">HORROR / RAYCASTING</span></div>
         <h2>Escape (9.0)</h2>
-        <p>First-person psychological horror. Features spatial phasing and a retro raycasting engine.</p>
+        <p>Latest horror build. Features spatial phasing and a retro raycasting engine.</p>
         <a href="horror-game.html" class="launch-btn">INITIALIZE 9.0</a>
     </div>
 
@@ -166,6 +181,46 @@
         <p>Turn-based hexagonal combat with a balanced economy and unit creator.</p>
         <a href="strategy-game.html" class="launch-btn">INITIALIZE V6</a>
     </div>
+</div>
+
+<div class="section-title">ITERATION ARCHIVE</div>
+<div class="container">
+
+    <div class="card">
+        <div><span class="tag" style="color:#ffcc00">ARCHIVE</span></div>
+        <h2>Horror: Ver 8.0</h2>
+        <p>Previous iteration of the raycasting horror engine.</p>
+        <a href="Firstpersonhorror8.0.html" class="launch-btn">LOAD VER 8.0</a>
+    </div>
+
+    <div class="card">
+        <div><span class="tag" style="color:#ffcc00">ARCHIVE</span></div>
+        <h2>Horror: Ver 3.0</h2>
+        <p>Early prototype of the first-person horror mechanics.</p>
+        <a href="Firstpersonhorror3.0.html" class="launch-btn">LOAD VER 3.0</a>
+    </div>
+
+    <div class="card">
+        <div><span class="tag" style="color:#ffcc00">ARCHIVE</span></div>
+        <h2>Dusk & Dawn (Demo Day)</h2>
+        <p>The "Demo Day" build of the roguelike engine.</p>
+        <a href="duskanddawniterationdemoday.html" class="launch-btn">LOAD DEMO DAY</a>
+    </div>
+
+    <div class="card">
+        <div><span class="tag" style="color:#ffcc00">ARCHIVE</span></div>
+        <h2>Dusk & Dawn (Ver 4.0)</h2>
+        <p>Iteration 4.0 of the top-down survival prototype.</p>
+        <a href="duskanddawniteration4.0.html" class="launch-btn">LOAD VER 4.0</a>
+    </div>
+
+    <div class="card">
+        <div><span class="tag" style="color:#ffcc00">ARCHIVE</span></div>
+        <h2>Post-IRL Feedback</h2>
+        <p>A specific build created after receiving real-life feedback.</p>
+        <a href="AfterIRLFeedback.html" class="launch-btn">LOAD FEEDBACK VER</a>
+    </div>
+
 </div>
 
 <footer>
