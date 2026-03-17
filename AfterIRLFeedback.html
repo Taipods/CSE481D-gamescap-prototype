@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Escape: Shadow Step - Tutorial</title>
+    <title>Escape: Shadow Step - Free Move</title>
     <style>
         :root {
             --game-width: min(90vw, 162vh, 1400px);
@@ -21,6 +21,7 @@
             overflow: hidden; 
             height: 100vh; 
             justify-content: center;
+            user-select: none;
         }
 
         #game-container { 
@@ -29,6 +30,7 @@
             box-shadow: 0 0 20px #ff000033;
             width: var(--game-width); 
             aspect-ratio: 720/400; 
+            cursor: crosshair;
         }
 
         canvas { 
@@ -47,11 +49,13 @@
             border-top: none; 
             display: flex; 
             justify-content: space-between; 
-            align-items: center; 
+            align-items: flex-start; 
             box-sizing: border-box; 
             font-size: calc(var(--game-width) * 0.015);
         }
 
+        .stat-group { display: flex; flex-direction: column; gap: 5px; width: 30%; }
+        
         #banner { 
             position: absolute; top: 10px; width: 100%; text-align: center; 
             font-size: calc(var(--game-width) * 0.03); font-weight: bold; 
@@ -77,7 +81,7 @@
         }
         
         #msg-overlay { 
-            position: absolute; bottom: 25%; width: 100%; text-align: center; 
+            position: absolute; bottom: 35%; width: 100%; text-align: center; 
             color: #ff3333; font-size: calc(var(--game-width) * 0.03); 
             font-weight: bold; text-shadow: 2px 2px #000; pointer-events: none; 
             z-index: 20; letter-spacing: 2px; 
@@ -98,13 +102,22 @@
             transition: opacity 0.1s;
         }
 
-/* --- FNAF STYLE JUMPSCARE CSS --- */
+        /* CROSSHAIR */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 50;
+            border-radius: 50%;
+            box-shadow: 0 0 2px #000;
+        }
+
+        /* SCREENS & JUMPSCARE */
         #jumpscare-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: black; z-index: 300; display: none;
             justify-content: center; align-items: center; overflow: hidden;
         }
-        
         #scare-face {
             width: 90%; height: 90%;
             background: radial-gradient(circle, #333, #000);
@@ -113,53 +126,29 @@
             box-shadow: 0 0 50px #000 inset; 
             animation: fnafLunge 0.2s forwards, violentShake 0.1s infinite;
         }
-
         .scare-eye {
             position: absolute; width: 20%; height: 20%; 
-            background: #000; 
-            top: 25%; border-radius: 50%;
+            background: #000; top: 25%; border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
         }
-        
         .scare-eye::after {
             content: ''; width: 20%; height: 20%; 
-            background: #fff; 
-            border-radius: 50%;
-            box-shadow: 0 0 10px #fff;
+            background: #fff; border-radius: 50%; box-shadow: 0 0 10px #fff;
         }
-
         .scare-mouth {
             position: absolute; width: 50%; height: 50%; 
             background: #000; bottom: 5%; left: 25%; 
-            border-radius: 20% 20% 40% 40%;
-            border: 5px solid #222;
-            overflow: hidden;
+            border-radius: 20% 20% 40% 40%; border: 5px solid #222; overflow: hidden;
         }
-
-        .scare-mouth::before {
-            content: ''; position: absolute; top: 0; left: 10%; width: 80%; height: 20px;
+        .scare-mouth::before, .scare-mouth::after {
+            content: ''; position: absolute; left: 10%; width: 80%; height: 20px;
             background: repeating-linear-gradient(90deg, #ccc 0, #ccc 10px, transparent 10px, transparent 15px);
         }
-        .scare-mouth::after {
-            content: ''; position: absolute; bottom: 0; left: 10%; width: 80%; height: 20px;
-            background: repeating-linear-gradient(90deg, #ccc 0, #ccc 10px, transparent 10px, transparent 15px);
-        }
+        .scare-mouth::before { top: 0; } .scare-mouth::after { bottom: 0; }
 
-        @keyframes fnafLunge {
-            0% { transform: scale(0.2) translateY(50px); opacity: 0; }
-            40% { opacity: 1; }
-            100% { transform: scale(1.3) translateY(0); }
-        }
+        @keyframes fnafLunge { 0% { transform: scale(0.2) translateY(50px); opacity: 0; } 40% { opacity: 1; } 100% { transform: scale(1.3) translateY(0); } }
+        @keyframes violentShake { 0% { transform: translate(0, 0) scale(1.3); } 25% { transform: translate(-10px, 10px) scale(1.32); } 50% { transform: translate(10px, -5px) scale(1.28); } 75% { transform: translate(-5px, -15px) scale(1.31); } 100% { transform: translate(0, 0) scale(1.3); } }
 
-        @keyframes violentShake {
-            0% { transform: translate(0, 0) scale(1.3); }
-            25% { transform: translate(-10px, 10px) scale(1.32); }
-            50% { transform: translate(10px, -5px) scale(1.28); }
-            75% { transform: translate(-5px, -15px) scale(1.31); }
-            100% { transform: translate(0, 0) scale(1.3); }
-        }
-
-        /* SCREENS */
         #game-over-screen, #win-screen, #level-screen, #start-screen { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(5, 0, 0, 1); display: none; 
@@ -199,6 +188,7 @@
             <div class="tut-text" id="tut-msg">Check map for Key</div>
         </div>
 
+        <div id="crosshair"></div>
         <div id="msg-overlay"></div>
         <div id="interaction-prompt"></div>
         <div id="danger-vignette"></div>
@@ -214,11 +204,13 @@
         <div id="start-screen">
             <h1 class="title-huge">Dusk and Dawn</h1>
             <div class="controls-box">
-                <div class="control-row"><span class="key-badge">W A S D</span> MOVE OPERATOR</div>
-                <div class="control-row"><span class="key-badge">E</span> INTERACT / COMMUNE WITH OBELISK</div>
-                <div class="control-row" style="color: #ffff00; margin-top: 10px;">TRAINING SIMULATION LOADED</div>
+                <div class="control-row"><span class="key-badge">MOUSE</span> LOOK</div>
+                <div class="control-row"><span class="key-badge">W A S D</span> MOVE / STRAFE</div>
+                <div class="control-row"><span class="key-badge">E</span> INTERACT / COMMUNE</div>
+                <div class="control-row"><span class="key-badge">F</span> TOGGLE FLASHLIGHT</div>
+                <div class="control-row" style="color: #ffff00; margin-top: 10px;">CLICK SCREEN TO LOCK MOUSE</div>
             </div>
-            <div class="start-prompt" onclick="beginGame()">[ PRESS ENTER TO INITIALIZE ]</div>
+            <div class="start-prompt" onclick="beginGame()">[ CLICK TO INITIALIZE ]</div>
         </div>
 
         <div id="game-over-screen">
@@ -245,12 +237,12 @@
         <canvas id="gameCanvas" width="720" height="400"></canvas>
     </div>
     <div class="ui">
-        <div>
+        <div class="stat-group">
             <div id="status">DIMENSION: PRESENT</div>
         </div>
-        <div style="border-left: 2px solid #880000; padding-left: 10px;">
+        <div style="border-left: 2px solid #880000; padding-left: 10px; text-align: right;">
             <div id="inventory">OBJECTIVE: FIND THE KEY</div>
-            <div style="font-size: calc(var(--game-width) * 0.012); color: #660000; margin-top: 5px;">WASD: MOVE | E: INTERACT</div>
+            <div style="font-size: calc(var(--game-width) * 0.012); color: #660000; margin-top: 5px;">MOUSE: LOOK | WASD: MOVE | E: ACT</div>
         </div>
     </div>
 
@@ -354,40 +346,30 @@
 
         function playScream() {
             if (!audioCtx) return;
-            
-            // Oscillator 1: High pitched screech
             const osc1 = audioCtx.createOscillator();
             const g1 = audioCtx.createGain();
-            osc1.type = 'sawtooth'; // Harsh wave
+            osc1.type = 'sawtooth'; 
             osc1.frequency.setValueAtTime(150, audioCtx.currentTime);
             osc1.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
             osc1.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 1.5);
-            
             g1.gain.setValueAtTime(0.5, audioCtx.currentTime); 
             g1.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
-            
             osc1.connect(g1); g1.connect(audioCtx.destination);
             osc1.start(); osc1.stop(audioCtx.currentTime + 1.5);
-
-            // Oscillator 2: Low discordant rumble/static
             const osc2 = audioCtx.createOscillator();
             const g2 = audioCtx.createGain();
-            osc2.type = 'square'; // Buzzing wave
+            osc2.type = 'square'; 
             osc2.frequency.setValueAtTime(100, audioCtx.currentTime);
             osc2.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 1.5);
-            
-            // Add a "wobble" to sound unstable
             const lfo = audioCtx.createOscillator();
-            lfo.frequency.value = 50; // Fast wobble
+            lfo.frequency.value = 50; 
             const lfoGain = audioCtx.createGain();
             lfoGain.gain.value = 500;
             lfo.connect(lfoGain);
             lfoGain.connect(osc2.frequency);
             lfo.start(); lfo.stop(audioCtx.currentTime + 1.5);
-
             g2.gain.setValueAtTime(0.3, audioCtx.currentTime);
             g2.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
-
             osc2.connect(g2); g2.connect(audioCtx.destination);
             osc2.start(); osc2.stop(audioCtx.currentTime + 1.5);
         }
@@ -416,6 +398,18 @@
             osc.connect(g); g.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + 0.8);
         }
+        
+        function playClick() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
 
         function playDenied() {
             if (!audioCtx) return;
@@ -438,34 +432,36 @@
         }
 
         // --- MAP DATA ---
+// --- MAP DATA ---
     const levels = [
     {
         name: "TUTORIAL - DIMENSIONS",
         totalKeys: 1, 
-        playerStart: { x: 2, y: 5, dir: 1 }, 
-        story: "SECTOR 1: SLOTH. The entity is slow but persistent.",
-        // PRESENT: Corridor with Alcove on Left (y=4, x=6)
+        playerStart: { x: 2.5, y: 5.5, dir: 1 }, 
+        story: "DON'T LOOK AWAY. If you see him, stare him down until he vanishes.",
+        aiType: "tutorial", // Slow, standard
+        // PRESENT
         present: [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // Row 4: Wall everywhere except Obelisk at x=6
-            [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1], // Row 5: Corridor. Blocked at x=8.
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // Row 6: Solid Wall
+            [1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
+            [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ],
-        // PAST: Corridor with Alcove on Left
+        // PAST
         past: [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1], // Row 4: Obelisk at x=6
-            [1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,1], // Row 5: Corridor open! Key at x=12.
+            [1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1], 
+            [1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
@@ -476,52 +472,161 @@
     {
         name: "SECTOR 2 - ENVY",
         totalKeys: 3,
-        playerStart: { x: 1, y: 5, dir: 0 }, 
-        story: "Sector 3 Unlocked.",
+        playerStart: { x: 1.5, y: 5.5, dir: 0 }, 
+        story: "DON'T LOOK AWAY. If you see him, stare him down until he vanishes.",
+        aiType: "vanish", // Freezes when seen. Vanishes if stared at long enough.
         present: [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,2,0,0,0,0,1], // Key 1
+            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,2,0,0,0,0,1], 
             [1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],
             [1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1],
             [1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1],
-            [1,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], // Start
+            [1,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
             [1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1],
-            [1,0,1,0,0,0,0,0,1,0,1,2,1,0,1,0,0,0,0,0,1,0,1,0,1], // Key 2
+            [1,0,1,0,0,0,0,0,1,0,1,2,1,0,1,0,0,0,0,0,1,0,1,0,1], 
             [1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1],
-            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,3,0,1], // Exit
+            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,3,0,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ],
         past: [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
             [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
-            [1,0,1,2,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,1], // Key 3
+            [1,0,1,2,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,1], 
             [1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1],
             [1,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,1], 
             [1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1],
             [1,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1], 
             [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
-            [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ]
+    },
+    {
+        name: "SECTOR 3 - BARRIER",
+        totalKeys: 1, 
+        playerStart: { x: 1.5, y: 5.5, dir: 1 },
+        story: "He will STOP if you look, but he will NEVER disappear.",
+        aiType: "statue", // Freezes when seen. DOES NOT VANISH.
+        
+        present: [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
+            [1,0,0,0,0,0,0,4,1,0,0,0,0,0,0,4,1,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,1,1,1,1,1,0,1],
+            [1,0,1,0,0,0,0,0,1,0,0,0,2,0,0,0,1,0,0,0,0,0,1,0,1],
+            [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,3,0,1], 
+            [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1], 
+            [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ],
+        past: [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
+            [1,0,0,0,0,0,0,4,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,0,1], 
+            [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1], 
+            [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1], 
+            [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,0,1], 
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ]
+    },
+    {
+        name: "SECTOR 4 - LUST",
+        totalKeys: 4,
+        playerStart: { x: 12.5, y: 5.5, dir: 2 },
+        story: "He sleeps in the dark. DO NOT LOOK AT HIM, or he will wake up.",
+        aiType: "shy", // Passive/Idle normally. AGGRO if looked at.
+
+        present: [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,2,4,0,0,1,1,1,1,1,1,3,1,1,1,1,1,1,0,0,0,2,4,1], 
+            [1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,0,0,0,1],
+            [1,0,0,0,0,1,1,1,1,4,0,0,0,4,1,1,1,1,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1], 
+            [1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,1,1,1,1,4,0,0,0,4,1,1,1,1,0,0,0,0,0,1], 
+            [1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,0,0,0,1],
+            [1,2,4,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,0,2,4,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ],
+        past: [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,1], 
+            [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,0,1],
+            [1,0,1,1,1,0,1,1,1,4,0,0,0,4,1,1,1,0,1,1,1,0,0,1], 
+            [1,0,1,1,1,0,1,1,1,0,0,0,0,0,1,1,1,0,1,1,1,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
+            [1,0,1,1,1,0,1,1,1,0,0,0,0,0,1,1,1,0,1,1,1,0,0,1],
+            [1,0,1,1,1,0,1,1,1,4,0,0,0,4,1,1,1,0,1,1,1,0,0,1], 
+            [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,0,1],
+            [1,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ]
+    },
+    {
+        name: "SECTOR 5 - WRATH",
+        totalKeys: 5,
+        playerStart: { x: 1.5, y: 1.5, dir: 1 }, 
+        story: "ANGER. HE IS COMING. RUN.",
+        aiType: "aggro", // Always chases.
+
+        present: [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1],
+            [1,0,0,0,0,1,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1],
+            [1,0,0,4,0,1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,4,0,0,0,1], 
+            [1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,2,0,1,0,1,0,0,1,0,1,0,0,0,1,1,3,1,1], 
+            [1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,1],
+            [1,0,0,4,0,1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,4,0,0,0,1], 
+            [1,0,0,0,0,1,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1],
+            [1,2,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ],
+        past: [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,1,1,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,0,4,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,4,0,0,0,1], 
+            [1,0,1,1,1,0,0,0,0,0,0,4,0,0,0,0,0,0,0,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1], 
+            [1,0,1,1,1,0,0,0,0,0,0,4,0,0,0,0,0,0,0,1,1,1,1,0,1],
+            [1,0,0,4,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,4,0,0,0,1], 
+            [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1], 
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ]
     }
 ];
 
         // --- GAME LOGIC ---
-        let currentLevelIdx = 0;
+let currentLevelIdx = 0;
         let presentGrid, pastGrid;
         let isDead = false, hasWon = false, inPast = false, flickerVal = 1;
         let gameActive = false;
-        let keysCollected = 0; 
+        let storyActive = false; // <--- ADD THIS
+        let keysCollected = 0;
         let keysNeeded = 1;     
         let frameCount = 0;
-        let player = { x: 1, y: 1, dir: 1 }; 
+        let player = { x: 1, y: 1, angle: 0 }; 
         let view = { x: 1, y: 1, angle: 0 };
         const MAP_W = 25, MAP_H = 11;
-        
-        let inputCooldown = 0;
-
         let depthBuffer = new Array(120).fill(0);
+        let flashlightOn = true;
+        
+        // MOVEMENT VARS
+        const keys = { w: false, s: false, a: false, d: false };
+        const MOVE_SPEED = 0.05;
+        const ROT_SPEED = 0.04;
+        const COLLISION_RADIUS = 0.2;
+        let footstepTimer = 0;
 
         // --- TUTORIAL LOGIC ---
         let tutorialStep = 0;
@@ -551,7 +656,28 @@
             const grid = inPast ? pastGrid : presentGrid;
             return grid[Math.floor(y)][Math.floor(x)] !== 0;
         }
+        
+        // Checks collision with a circular radius against grid walls
+        function isColliding(x, y) {
+            // We check the 4 corners of the player's bounding box.
+            // This creates a solid square that cannot clip through walls.
+            const r = COLLISION_RADIUS;
+            
+            // Check Top-Left, Top-Right, Bottom-Left, Bottom-Right
+            if (isWall(x - r, y - r)) return true;
+            if (isWall(x + r, y - r)) return true;
+            if (isWall(x - r, y + r)) return true;
+            if (isWall(x + r, y + r)) return true;
 
+            // Optional: Check midpoints to prevent straddling tiny blocks 
+            // (Not strictly necessary for 1x1 blocks but good for robustness)
+            if (isWall(x - r, y)) return true;
+            if (isWall(x + r, y)) return true;
+            if (isWall(x, y - r)) return true;
+            if (isWall(x, y + r)) return true;
+
+            return false;
+        }
         function hasLineOfSight(x1, y1, x2, y2) {
             const dx = x2 - x1;
             const dy = y2 - y1;
@@ -570,8 +696,7 @@
             return true;
         }
 
-        function resetStalker() {
-            // TUTORIAL: Disable stalker until specific step
+function resetStalker() {
             if (tutorialActive && !monsterTriggered) {
                 stalker.active = false;
                 return;
@@ -585,6 +710,7 @@
             stalker.isMoving = false;
             stalker.mode = 'RUSH';
             stalker.teleportCooldown = 120;
+            stalker.permaAggro = false; // NEW: For Level 4/5 logic
 
             let attempts = 0;
             let spawned = false;
@@ -616,6 +742,7 @@
         function beginGame() {
             gameActive = true;
             document.getElementById('start-screen').style.display = 'none';
+            canvas.requestPointerLock();
             initAudio(); 
         }
 
@@ -624,6 +751,7 @@
             jumpscareScreen.style.display = "none";
             loadLevel(currentLevelIdx);
             playAmbientMusic();
+            canvas.requestPointerLock();
         }
 
         function loadLevel(idx) {
@@ -632,13 +760,23 @@
                 if(ambientGain) ambientGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2); 
                 document.getElementById('win-screen').style.display = "flex";
                 tutorialBox.style.display = 'none';
+                document.exitPointerLock();
                 return;
             }
+
+            // Show Story Screen
             if (idx > 0) {
                 const lvlScreen = document.getElementById('level-screen');
-                document.getElementById('level-story').innerText = levels[idx-1].story;
+                // FIXED: Use current level story (idx) not previous (idx-1)
+                document.getElementById('level-story').innerText = levels[idx].story;
+                
                 lvlScreen.style.display = 'flex';
-                setTimeout(() => { lvlScreen.style.display = 'none'; }, 4000); 
+                storyActive = true; // <--- PAUSE GAME
+                
+                setTimeout(() => { 
+                    lvlScreen.style.display = 'none'; 
+                    storyActive = false; // <--- RESUME GAME
+                }, 4000); 
             }
 
             currentLevelIdx = idx;
@@ -646,16 +784,22 @@
             banner.innerText = levelData.name;
             presentGrid = JSON.parse(JSON.stringify(levelData.present));
             pastGrid = JSON.parse(JSON.stringify(levelData.past));
+            
             player.x = levelData.playerStart.x;
             player.y = levelData.playerStart.y;
-            player.dir = levelData.playerStart.dir;
-            view.x = player.x; view.y = player.y;
+            // Convert legacy dir to angle (0=Up, 1=Right, 2=Down, 3=Left)
+            player.angle = [Math.PI * 1.5, 0, Math.PI * 0.5, Math.PI][levelData.playerStart.dir];
+            
+            view.x = player.x; view.y = player.y; view.angle = player.angle;
+            
             keysCollected = 0;
             keysNeeded = levelData.totalKeys;
             isDead = false;
             inPast = false;
-            inputCooldown = 0;
             
+            // Reset Stats
+            flashlightOn = true;
+
             // Tutorial Config
             tutorialActive = (idx === 0);
             tutorialStep = 0;
@@ -683,10 +827,23 @@
 
         loadLevel(0);
 
+        // MOUSE LOOK IMPLEMENTATION
+        canvas.onclick = () => {
+            if (gameActive && !isDead && !hasWon) canvas.requestPointerLock();
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (gameActive && document.pointerLockElement === canvas) {
+                player.angle += e.movementX * 0.0025; // Sensitivity
+                view.angle = player.angle;
+            }
+        });
+
         window.onkeydown = (e) => {
             const key = e.key.toLowerCase();
             if (!gameActive) { if (key === 'enter' || key === ' ') beginGame(); return; }
             initAudio(); 
+            
             if (isDead) {
                 if (key === 'r') retryLevel();
                 if (key === 'q') location.reload();
@@ -694,64 +851,70 @@
             }
             if (key === 'r' && !isDead) location.reload(); 
             if (key === 'p' && !isDead) { showMessage("SYSTEM OVERRIDE: SKIPPING SECTOR..."); loadLevel(currentLevelIdx + 1); return; }
-            if (isDead || hasWon) return;
-            if (key === 'e') checkInteractions();
+            
+            if (key === 'w') keys.w = true;
+            if (key === 's') keys.s = true;
+            if (key === 'a') keys.a = true;
+            if (key === 'd') keys.d = true;
 
-            // --- MOVEMENT FIX: COOLDOWN CHECK ---
-            const isMovementKey = ['w','a','s','d'].includes(key);
-            if (isMovementKey && inputCooldown > 0) return;
-            // ------------------------------------
-
-            let dx = 0, dy = 0;
-            if (key === 'w') { dx = [0, 1, 0, -1][player.dir]; dy = [-1, 0, 1, 0][player.dir]; }
-            if (key === 's') { dx = [0, -1, 0, 1][player.dir]; dy = [1, 0, -1, 0][player.dir]; }
-            if (key === 'a') player.dir = (player.dir + 3) % 4; 
-            if (key === 'd') player.dir = (player.dir + 1) % 4;
-
-            const currentGrid = inPast ? pastGrid : presentGrid;
-            if ((dx !== 0 || dy !== 0)) {
-                let nx = player.x + dx, ny = player.y + dy;
-                if (currentGrid[ny] && currentGrid[ny][nx] === 0) {
-                    player.x = nx; player.y = ny;
-                    playFootstep();
-                    // Tutorial move trigger
-                    if(tutorialActive && tutorialStep === 0) tutorialStep = 1;
-                }
+            if (key === 'f') {
+                flashlightOn = !flashlightOn;
+                playClick();
+            }
+            if (key === 'p') { 
+                playClick(); // Sound feedback
+                showMessage("SYSTEM OVERRIDE: SECTOR SKIPPED"); 
+                loadLevel(currentLevelIdx + 1); 
+                return; 
             }
 
-            // Set cooldown if we moved or turned
-            if (isMovementKey) inputCooldown = 9; // Reduced from 15 for faster movement
+            if (key === 'e') checkInteractions();
         };
 
-        function triggerJumpscare() {
+        window.onkeyup = (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'w') keys.w = false;
+            if (key === 's') keys.s = false;
+            if (key === 'a') keys.a = false;
+            if (key === 'd') keys.d = false;
+        };
+
+        function triggerDeath(reason) {
+            if(isDead) return;
             isDead = true;
+            document.exitPointerLock();
             if(ambientGain) ambientGain.gain.value = 0;
             
-            // Hide Game UI
             document.getElementById('game-container').style.borderColor = "#000";
             document.querySelector('.ui').style.opacity = "0";
             banner.style.display = "none";
             
-            jumpscareScreen.style.display = "flex";
-            playScream();
-            
-            setTimeout(() => {
-                jumpscareScreen.style.display = "none";
-                document.getElementById('game-over-screen').style.display = "flex";
-                document.getElementById('death-msg').innerText = "IT CAUGHT YOU.";
-                
-                // Restore UI for game over screen
-                document.querySelector('.ui').style.opacity = "1";
-                document.getElementById('game-container').style.borderColor = "#440000";
-                banner.style.display = "block";
-            }, 2000); 
+            if (reason === 'monster') {
+                jumpscareScreen.style.display = "flex";
+                playScream();
+                setTimeout(() => {
+                    jumpscareScreen.style.display = "none";
+                    showGameOver("IT CAUGHT YOU.");
+                }, 2000);
+            } else {
+                playScream(); // Generic scare sound
+                showGameOver(reason);
+            }
+        }
+
+        function showGameOver(msg) {
+            document.getElementById('game-over-screen').style.display = "flex";
+            document.getElementById('death-msg').innerText = msg;
+            document.querySelector('.ui').style.opacity = "1";
+            document.getElementById('game-container').style.borderColor = "#440000";
+            banner.style.display = "block";
         }
 
         function checkInteractions() {
-            const dx = [0, 1, 0, -1][player.dir];
-            const dy = [-1, 0, 1, 0][player.dir];
-            const tx = player.x + dx;
-            const ty = player.y + dy;
+            // Check 1.2 units in front of player
+            const tx = Math.floor(player.x + Math.cos(player.angle) * 1.0);
+            const ty = Math.floor(player.y + Math.sin(player.angle) * 1.0);
+            
             const grid = inPast ? pastGrid : presentGrid;
             if (!grid[ty] || grid[ty][tx] === undefined) return;
             const tile = grid[ty][tx];
@@ -761,12 +924,11 @@
                 grid[ty][tx] = 0; 
                 playCollect();
                 updateInventoryText();
-                // Update tutorial: Key collected
                 if(tutorialActive) tutorialStep = 5;
             } else if (tile === 4) {
                 const targetGrid = inPast ? presentGrid : pastGrid;
-                
-                if (targetGrid[player.y][player.x] !== 0) {
+                // Check if target destination is a wall
+                if (targetGrid[Math.floor(player.y)][Math.floor(player.x)] !== 0) {
                      playDenied();
                      showMessage("CANNOT COMMUNE: OBSTRUCTED IN " + (inPast ? "PRESENT" : "PAST"));
                      return;
@@ -782,14 +944,9 @@
                 document.getElementById('status').innerText = "DIMENSION: " + (inPast ? "PAST" : "PRESENT");
                 showMessage(inPast ? "ENTERING THE PAST" : "RETURNING TO PRESENT");
                 
-                // Tutorial logic for Obelisk
                 if(tutorialActive) {
-                    if (tutorialStep === 3) {
-                        tutorialStep = 4;
-                    } else if (tutorialStep === 5 && !inPast) {
-                        // Returning to Present with Key
-                        tutorialStep = 6;
-                    }
+                    if (tutorialStep === 3) tutorialStep = 4;
+                    else if (tutorialStep === 5 && !inPast) tutorialStep = 6;
                 }
             } else if (tile === 3) {
                 if (keysCollected >= keysNeeded) loadLevel(currentLevelIdx + 1);
@@ -801,59 +958,33 @@
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const g = audioCtx.createGain();
-            
             osc.type = Math.random() > 0.5 ? 'sawtooth' : 'square';
-            
             const freq = 60 + Math.random() * 40;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
             osc.frequency.linearRampToValueAtTime(freq - 20, audioCtx.currentTime + 0.3);
             g.gain.setValueAtTime(0.05, audioCtx.currentTime);
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-
             osc.connect(g); g.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + 0.3);
         }
 
-        function updateStalker() {
+function updateStalker() {
             if (!stalker.active) {
                 if (stalker.respawnTimer > 0) stalker.respawnTimer--;
                 else resetStalker();
                 return;
             }
 
-            const distToPlayer = Math.sqrt((stalker.gridX - player.x)**2 + (stalker.gridY - player.y)**2);
+            const distToPlayer = Math.sqrt((stalker.gridX + 0.5 - player.x)**2 + (stalker.gridY + 0.5 - player.y)**2);
             
+            // Kill Trigger
             if (distToPlayer < 0.9) { 
-                triggerJumpscare();
+                triggerDeath('monster');
                 return;
             }
 
+            // Calculations
             const hasLOS = hasLineOfSight(stalker.visualX, stalker.visualY, player.x, player.y);
-
-            if (stalker.teleportCooldown > 0) stalker.teleportCooldown--;
-            if (distToPlayer > 15 && stalker.teleportCooldown <= 0) {
-                 for(let i=0; i<15; i++) {
-                     const angleOffset = Math.PI + (Math.random() * 2.0 - 1.0);
-                     const spawnAngle = view.angle + angleOffset;
-                     const r = 4 + Math.random() * 3;
-                     const tx = Math.floor(player.x + Math.cos(spawnAngle) * r);
-                     const ty = Math.floor(player.y + Math.sin(spawnAngle) * r);
-                     
-                     if (!isWall(tx, ty)) {
-                         stalker.gridX = tx; stalker.gridY = ty;
-                         stalker.visualX = tx + 0.5; stalker.visualY = ty + 0.5;
-                         stalker.startX = tx; stalker.startY = ty;
-                         stalker.targetX = tx; stalker.targetY = ty;
-                         stalker.isMoving = false;
-                         stalker.mode = 'RUSH'; 
-                         stalker.teleportCooldown = 600; 
-                         playPhaseSound(); 
-                         flickerVal = 0.2; 
-                         break;
-                     }
-                 }
-            }
-
             const dxP = stalker.visualX - player.x;
             const dyP = stalker.visualY - player.y;
             const angleToStalker = Math.atan2(dyP, dxP);
@@ -861,65 +992,113 @@
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
             while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
             const playerLooksAtStalker = Math.abs(angleDiff) < 0.6;
+            
+            // --- BEHAVIOR SWITCH ---
+            const aiType = levels[currentLevelIdx].aiType || "vanish";
 
-            if (stalker.active && hasLOS && playerLooksAtStalker) {
-                 msgOverlay.innerText = "DON'T LOOK AWAY";
-                 msgOverlay.style.color = "#ff0000";
-                 msgOverlay.style.textShadow = `${Math.random() * 6 - 3}px ${Math.random() * 6 - 3}px #990000`;
-            } else if (msgOverlay.innerText === "DON'T LOOK AWAY") {
-                 msgOverlay.innerText = "";
-                 msgOverlay.style.color = "#ff3333";
-                 msgOverlay.style.textShadow = "2px 2px #000";
-            }
+            // Default Text Reset
+            if (msgOverlay.innerText.includes("CHASE") || msgOverlay.innerText.includes("LOOK") || msgOverlay.innerText.includes("CLOSER")) msgOverlay.innerText = "";
 
-            if (stalker.mode === 'RUSH') {
-                stalker.moveInterval = tutorialActive ? 25 : 12; 
-                
-                if ((distToPlayer < 4.0 && hasLOS) || (hasLOS && playerLooksAtStalker)) {
-                    stalker.mode = 'WATCH';
+            if (aiType === "aggro") {
+                // LEVEL 5: ALWAYS ANGRY
+                stalker.mode = 'RUSH';
+                stalker.moveInterval = 16; // WAS 8 (Now Slower)
+                if (hasLOS) {
+                     stalker.attackTimer = 300; 
+                     dangerVignette.style.opacity = 1.0;
                 }
-            } else if (stalker.mode === 'WATCH') {
-                stalker.moveInterval = 99999; 
-                
-                if (!playerLooksAtStalker && hasLOS) {
-                    stalker.attackTimer += 2;
-
-                    if (frameCount % 60 === 0) {
-                        playScaryNoise();
-                    }
-
-                    const framesLeft = (360 - stalker.attackTimer) / 2;
-                    let secondsLeft = (framesLeft / 60).toFixed(1);
-                    if (secondsLeft < 0) secondsLeft = 0;
-                    
-                    msgOverlay.innerText = `IT WILL CHASE YOU IN ${secondsLeft}s`;
-                    msgOverlay.style.color = "#ffffff"; 
-                    msgOverlay.style.textShadow = Math.random() > 0.5 ? "1px 1px #000" : "-1px -1px #000";
-
-                } else if (hasLOS) {
-                    stalker.seenDuration++;
-                    if (stalker.seenDuration > 180) { 
-                        stalker.active = false;
-                        stalker.respawnTimer = 400;
-                        showMessage("IT VANISHED.");
-                    }
+            } 
+            else if (aiType === "shy") {
+                // LEVEL 4: SHY
+                if (stalker.permaAggro) {
+                    stalker.mode = 'RUSH';
+                    stalker.moveInterval = 25; // WAS 10 (Now Slower)
+                    if (hasLOS) dangerVignette.style.opacity = 1.0;
                 } else {
-                    if (msgOverlay.innerText.includes("CHASE")) msgOverlay.innerText = "";
+                    if (hasLOS && playerLooksAtStalker) {
+                        stalker.mode = 'RUSH'; 
+                        stalker.moveInterval = 40; // WAS 20 (Now much slower when looking)
+                        
+                        stalker.attackTimer += 4;
+                        dangerVignette.style.opacity = stalker.attackTimer / 200;
+                        msgOverlay.innerText = "DON'T LOOK AT HIM";
+                        msgOverlay.style.color = "#ff0000";
+
+                        if (stalker.attackTimer > 200) {
+                            playScream();
+                            stalker.permaAggro = true;
+                            showMessage("HE SAW YOU LOOKING.");
+                        }
+                    } else {
+                        stalker.mode = 'WATCH'; 
+                        stalker.attackTimer = Math.max(0, stalker.attackTimer - 1);
+                        dangerVignette.style.opacity = stalker.attackTimer / 200;
+                    }
+                }
+            } 
+            else {
+                // LEVEL 1, 2, 3 (Standard)
+                
+                // Teleport Logic
+                if (stalker.teleportCooldown > 0) stalker.teleportCooldown--;
+                if (distToPlayer > 15 && stalker.teleportCooldown <= 0) {
+                     for(let i=0; i<15; i++) {
+                         const angleOffset = Math.PI + (Math.random() * 2.0 - 1.0);
+                         const spawnAngle = view.angle + angleOffset;
+                         const r = 4 + Math.random() * 3;
+                         const tx = Math.floor(player.x + Math.cos(spawnAngle) * r);
+                         const ty = Math.floor(player.y + Math.sin(spawnAngle) * r);
+                         
+                         if (!isWall(tx, ty)) {
+                             stalker.gridX = tx; stalker.gridY = ty;
+                             stalker.visualX = tx + 0.5; stalker.visualY = ty + 0.5;
+                             stalker.startX = tx; stalker.startY = ty;
+                             stalker.targetX = tx; stalker.targetY = ty;
+                             stalker.isMoving = false;
+                             stalker.mode = 'RUSH'; 
+                             stalker.teleportCooldown = 600; 
+                             playPhaseSound(); 
+                             flickerVal = 0.2; 
+                             break;
+                         }
+                     }
                 }
 
-                if (!hasLOS || (distToPlayer > 5.5 && !playerLooksAtStalker)) {
-                     stalker.mode = 'RUSH';
-                     if (msgOverlay.innerText.includes("CHASE")) msgOverlay.innerText = "";
+                // Standard Freeze Logic
+                if (hasLOS && playerLooksAtStalker) {
+                    msgOverlay.innerText = "DON'T LOOK AWAY";
+                    msgOverlay.style.color = "#ff0000";
+                    stalker.mode = 'WATCH'; // Freeze
+                    
+                    if (aiType === "vanish") {
+                        stalker.seenDuration++;
+                        if (stalker.seenDuration > 180) { 
+                            stalker.active = false;
+                            stalker.respawnTimer = 400;
+                            showMessage("IT VANISHED.");
+                        }
+                    }
+                } 
+                else if (hasLOS && !playerLooksAtStalker) {
+                    stalker.mode = 'WATCH'; 
+                    stalker.attackTimer += 2;
+                    if (frameCount % 60 === 0) playScaryNoise();
+
+                    dangerVignette.style.opacity = Math.min(1, stalker.attackTimer / 240);
+                    if (stalker.attackTimer > 240) triggerDeath('monster');
+                    
+                    msgOverlay.innerText = "IT IS GETTING CLOSER";
+                } 
+                else {
+                    stalker.mode = 'RUSH';
+                    // WAS 12 (Standard) / 25 (Tutorial)
+                    stalker.moveInterval = (aiType === "tutorial") ? 35 : 22; 
+                    stalker.attackTimer = Math.max(0, stalker.attackTimer - 2);
+                    dangerVignette.style.opacity = stalker.attackTimer / 240;
                 }
-                
-                if (distToPlayer < 1.5) {
-                    stalker.mode = 'RETREAT';
-                    stalker.moveInterval = 30;
-                }
-            } else if (stalker.mode === 'RETREAT') {
-                if (distToPlayer > 3.0) stalker.mode = 'WATCH';
             }
 
+            // --- MOVEMENT ENGINE ---
             if (stalker.isMoving) {
                 stalker.moveLerp += 0.15; 
                 if (stalker.moveLerp >= 1) {
@@ -941,8 +1120,7 @@
                     
                     let goalType = 'approach';
                     if (stalker.mode === 'WATCH') goalType = 'stop';
-                    if (stalker.mode === 'RETREAT') goalType = 'retreat';
-
+                    
                     if (goalType !== 'stop') {
                         const neighbors = [
                             {x:stalker.gridX, y:stalker.gridY-1}, 
@@ -957,9 +1135,7 @@
                             valid.sort((a, b) => {
                                 const d1 = (a.x + 0.5 - player.x)**2 + (a.y + 0.5 - player.y)**2;
                                 const d2 = (b.x + 0.5 - player.x)**2 + (b.y + 0.5 - player.y)**2;
-                                if (goalType === 'approach') return d1 - d2; 
-                                if (goalType === 'retreat') return d2 - d1;
-                                return 0;
+                                return d1 - d2; 
                             });
 
                             const next = valid[0];
@@ -973,67 +1149,94 @@
                     }
                 }
             }
-
-            if (stalker.mode === 'WATCH' && hasLOS && !playerLooksAtStalker) {
-                 dangerVignette.style.opacity = Math.min(1, stalker.attackTimer / 360);
-                 if (stalker.attackTimer > 360) triggerJumpscare();
-            } else {
-                 stalker.attackTimer = Math.max(0, stalker.attackTimer - 2);
-                 dangerVignette.style.opacity = stalker.attackTimer / 360;
-            }
         }
-
         function updateTutorial() {
             if (!tutorialActive) return;
             
-            // 0: Start, 1: Moved, 2: Got Key, 3: Need Obelisk, 4: Switched, 5: Got Key, 6: Back to Present
-            
-            if (tutorialStep === 0) tutMsg.innerText = "Use W,A,S,D to move.";
+            if (tutorialStep === 0) tutMsg.innerText = "Use MOUSE to Look. WASD to Move.";
             else if (tutorialStep === 1) {
                  tutMsg.innerText = "The path ahead is blocked by a wall.";
-                 // Check if player is strictly at x=6 (next to the Obelisk)
-                 if (player.x === 6) tutorialStep = 2;
+                 if (player.x > 5.5) tutorialStep = 2;
             }
             else if (tutorialStep === 2) {
                  tutMsg.innerText = "LOOK LEFT.";
-                 // Check if player is looking North (dir 0) at x=6, y=5
                  const dx = player.x - 6;
                  const dy = player.y - 5;
                  const dist = Math.sqrt(dx*dx + dy*dy);
-
-                 if (dist < 2 && player.dir === 0) tutorialStep = 3;
+                 // Check angle roughly pointing left (PI)
+                 let diff = Math.abs(player.angle - Math.PI);
+                 if (dist < 2 && diff < 1.0) tutorialStep = 3;
             } 
             else if (tutorialStep === 3) {
-                 tutMsg.innerText = "[E] COMMUNE to warp dimensions. Watch the PAST MAP (Top Right).";
+                 tutMsg.innerText = "Look at OBELISK and press [E] to warp.";
             }
             else if (tutorialStep === 4) {
                  tutMsg.innerText = "You are now in the PAST. The wall is gone.";
             }
             else if (tutorialStep === 5) {
-                 tutMsg.innerText = "Key Obtained. Return to Obelisk and press [E] to return to PRESENT."; 
+                 tutMsg.innerText = "Key Obtained. Return to Obelisk and press [E]."; 
                  tutMsg.style.color = "#ffff00";
             }
             else if (tutorialStep === 6) {
-                 tutMsg.innerText = "Now go to the GREEN EXIT and press [E] to escape.";
+                 tutMsg.innerText = "Go to the GREEN EXIT and press [E].";
                  tutMsg.style.color = "#00ff00";
             }
         }
 
         function update() {
-            if (!gameActive || isDead || hasWon) return;
+            // ADDED: || storyActive
+            if (!gameActive || isDead || hasWon || storyActive) return;
+            
             frameCount++;
 
-            // Cooldown logic for movement smooths out "fast forward" issue
-            if (inputCooldown > 0) inputCooldown--;
+            // ... rest of the update function remains the same ...
 
-            // Interaction Prompts
-            const currentGrid = inPast ? pastGrid : presentGrid;
-            const dx = [0, 1, 0, -1][player.dir];
-            const dy = [-1, 0, 1, 0][player.dir];
-            const tx = player.x + dx;
-            const ty = player.y + dy;
+            // FREE MOVEMENT LOGIC
+            let dx = 0, dy = 0;
+            const speed = keys.w || keys.s || keys.a || keys.d ? MOVE_SPEED : 0;
+            
+            if (keys.w) {
+                dx += Math.cos(player.angle) * speed;
+                dy += Math.sin(player.angle) * speed;
+            }
+            if (keys.s) {
+                dx -= Math.cos(player.angle) * speed;
+                dy -= Math.sin(player.angle) * speed;
+            }
+            if (keys.a) {
+                dx += Math.cos(player.angle - Math.PI/2) * speed * 0.8;
+                dy += Math.sin(player.angle - Math.PI/2) * speed * 0.8;
+            }
+            if (keys.d) {
+                dx += Math.cos(player.angle + Math.PI/2) * speed * 0.8;
+                dy += Math.sin(player.angle + Math.PI/2) * speed * 0.8;
+            }
+
+            // Wall Collision (Slide)
+            if (!isColliding(player.x + dx, player.y)) {
+                player.x += dx;
+            }
+            if (!isColliding(player.x, player.y + dy)) {
+                player.y += dy;
+            }
+
+            // Footsteps
+            if (speed > 0) {
+                footstepTimer++;
+                if (footstepTimer > 25) {
+                    playFootstep();
+                    footstepTimer = 0;
+                    if(tutorialActive && tutorialStep === 0) tutorialStep = 1;
+                }
+            }
+
+            // Interaction Prompts Raycast
+            const tx = Math.floor(player.x + Math.cos(player.angle) * 1.0);
+            const ty = Math.floor(player.y + Math.sin(player.angle) * 1.0);
+            const grid = inPast ? pastGrid : presentGrid;
+            
             let tile = 0;
-            if (currentGrid[ty] && currentGrid[ty][tx] !== undefined) tile = currentGrid[ty][tx];
+            if (grid[ty] && grid[ty][tx] !== undefined) tile = grid[ty][tx];
 
             if (tile === 2) { interactionPrompt.style.display = 'block'; interactionPrompt.innerText = "[E] COLLECT KEY"; interactionPrompt.style.color = "#ffff00"; } 
             else if (tile === 4) { interactionPrompt.style.display = 'block'; interactionPrompt.innerText = "[E] COMMUNE"; interactionPrompt.style.color = "#ff00ff"; } 
@@ -1041,7 +1244,8 @@
                 interactionPrompt.style.display = 'block'; 
                 if (keysCollected < keysNeeded) { interactionPrompt.innerText = "LOCKED - NEED KEYS"; interactionPrompt.style.color = "#ff3333"; }
                 else { interactionPrompt.innerText = "[E] ESCAPE"; interactionPrompt.style.color = "#00ff00"; }
-            } else { interactionPrompt.style.display = 'none'; }
+            } 
+            else { interactionPrompt.style.display = 'none'; }
 
             updateStalker();
             updateTutorial();
@@ -1055,13 +1259,9 @@
                 }
             }
             
-            view.x += (player.x - view.x) * 0.2;
-            view.y += (player.y - view.y) * 0.2;
-            let targetAngle = [Math.PI * 1.5, 0, Math.PI * 0.5, Math.PI][player.dir];
-            let diff = targetAngle - view.angle;
-            while (diff < -Math.PI) diff += Math.PI * 2;
-            while (diff > Math.PI) diff -= Math.PI * 2;
-            view.angle += diff * 0.2;
+            view.x = player.x;
+            view.y = player.y;
+            view.angle = player.angle;
 
             flickerVal = Math.random() > 0.98 ? 0.3 : flickerVal + (1 - flickerVal) * 0.1;
         }
@@ -1070,19 +1270,15 @@
             ctx.fillStyle = inPast ? "#0a0000" : "#000308";
             ctx.fillRect(0, 0, 720, 400);
 
-            // Screen Shake on Step
             let shakeX = 0, shakeY = 0;
+
             if (stalker.isMoving && stalker.moveLerp > 0.8 && stalker.active) {
                  const dist = Math.sqrt((stalker.visualX - player.x)**2 + (stalker.visualY - player.y)**2);
                  if (dist < 8) {
                      const pwr = (8 - dist) * 1.5;
-                     shakeX = (Math.random() * pwr) - (pwr/2);
-                     shakeY = (Math.random() * pwr) - (pwr/2);
+                     shakeX += (Math.random() * pwr) - (pwr/2);
+                     shakeY += (Math.random() * pwr) - (pwr/2);
                  }
-            }
-            if (stalker.attackTimer > 180) {
-                 shakeX += (Math.random() * 4 - 2);
-                 shakeY += (Math.random() * 4 - 2);
             }
 
             const grid = inPast ? pastGrid : presentGrid;
@@ -1101,9 +1297,9 @@
                 while(hit === 0 && dist < viewDist) {
                     dist += 0.05; 
                     
-                    // Current Map Position
-                    let rX = view.x + 0.5 + cx * dist;
-                    let rY = view.y + 0.5 + cy * dist;
+                    // FIXED: Removed +0.5 to align camera with physical body
+                    let rX = view.x + cx * dist;
+                    let rY = view.y + cy * dist;
                     let tx = Math.floor(rX);
                     let ty = Math.floor(rY);
                     
@@ -1111,11 +1307,8 @@
                         let checkTile = grid[ty][tx];
                         
                         if (checkTile === 4) {
-                            // TRANSPARENCY LOGIC:
                             let fx = rX - tx; 
                             let fy = rY - ty; 
-                            
-                            // If we hit the center "pole", we stop.
                             if (fx > 0.45 && fx < 0.55 && fy > 0.45 && fy < 0.55) {
                                 hit = 4;
                             }
@@ -1126,9 +1319,24 @@
                 }
                 depthBuffer[i] = dist; 
 
+                // Correct fisheye
                 let h = canvas.height / (dist * Math.cos(rayAngle - view.angle));
-                let b = Math.max(0, 255 - (dist * (255/viewDist))) * flickerVal;
                 
+                // LIGHTING CALCULATION
+                let baseBrightness = Math.max(0, 255 - (dist * (255/viewDist))) * flickerVal;
+                
+                // Flashlight Cone logic
+                let lightMult = 0.05; // Base ambient darkness
+                if (flashlightOn) {
+                    // Calculate distance from center of screen (i=60)
+                    let centerDist = Math.abs(i - 60) / 60; // 0 to 1
+                    // Strong center, fade edges
+                    let cone = Math.max(0, 1 - centerDist * 1.2); 
+                    lightMult = 0.1 + cone * 1.5; 
+                }
+                
+                let b = baseBrightness * lightMult; 
+
                 let hitX = view.x + 0.5 + cx * dist;
                 let hitY = view.y + 0.5 + cy * dist;
                 let xFract = hitX - Math.floor(hitX);
@@ -1150,17 +1358,8 @@
                 else if (hit === 2) { 
                     const bob = Math.sin(Date.now() / 300) * (h * 0.05);
                     const keyY = y + bob;
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(x, keyY + h*0.1, 7, h*0.8);
                     ctx.fillStyle = `rgb(${b}, ${b}, 0)`; 
-                    if (texCoord > 0.45 && texCoord < 0.55) ctx.fillRect(x, keyY + h * 0.2, 7, h * 0.6);
-                    if (texCoord > 0.3 && texCoord < 0.7) {
-                        if (texCoord < 0.45 || texCoord > 0.55) ctx.fillRect(x, keyY + h * 0.2, 7, h * 0.2);
-                        ctx.fillRect(x, keyY + h * 0.2, 7, h * 0.05);
-                    }
-                    if (texCoord > 0.55 && texCoord < 0.75) {
-                        ctx.fillRect(x, keyY + h * 0.6, 7, h * 0.05);
-                        ctx.fillRect(x, keyY + h * 0.7, 7, h * 0.05);
-                    }
+                    if (texCoord > 0.3 && texCoord < 0.7) ctx.fillRect(x, keyY + h * 0.3, 7, h * 0.4);
                 }
                 else if (hit === 3) { 
                     ctx.fillStyle = (keysCollected >= keysNeeded) ? `rgb(0, ${b}, 0)` : `rgb(${b*0.2}, ${b*0.2}, ${b*0.2})`; 
@@ -1168,20 +1367,20 @@
                 } 
                 else if (hit === 4) {
                     const pulse = Math.sin(Date.now() / 200) * 50;
-                    ctx.fillStyle = `rgb(${pulse + 100}, 0, ${pulse + 200})`; // Glowing Purple
+                    ctx.fillStyle = `rgb(${Math.min(255, b + pulse)}, 0, ${Math.min(255, b + pulse + 100)})`;
                     ctx.fillRect(x, y, 7, h);
                 }
             }
 
             drawStalker(shakeX, shakeY);
-            drawMinimap();
         }
 
         function drawStalker(shakeX, shakeY) {
             if (!stalker.active) return;
             
-            const sx = stalker.visualX - (view.x + 0.5);
-            const sy = stalker.visualY - (view.y + 0.5);
+            // FIXED: Removed +0.5
+            const sx = stalker.visualX - view.x;
+            const sy = stalker.visualY - view.y;
 
             const dist = Math.sqrt(sx*sx + sy*sy);
             const angleToSprite = Math.atan2(sy, sx) - view.angle;
@@ -1202,6 +1401,14 @@
                 const startCol = Math.floor(spriteLeft / colWidth);
                 const endCol = Math.floor((spriteLeft + w) / colWidth);
 
+                // Calculate brightness for stalker based on flashlight
+                let spriteBright = 0.2; // dark ambient
+                if (flashlightOn) {
+                    let centerDist = Math.abs((screenX / canvas.width) - 0.5);
+                    let cone = Math.max(0, 1 - centerDist * 2.0);
+                    spriteBright = 0.2 + cone * 0.8;
+                }
+
                 for (let i = startCol; i < endCol; i++) {
                     if (i >= 0 && i < 120 && depthBuffer[i] > dist) {
                         const drawX = i * colWidth;
@@ -1209,8 +1416,10 @@
                         
                         const anger = Math.min(1, stalker.attackTimer / 240);
                         let r = inPast ? 136 : 17 + (anger * 200);
-                        
                         if (stalker.mode === 'RUSH') r += 50; 
+                        
+                        // Apply lighting
+                        r *= spriteBright;
 
                         if (texX < 0.1 || texX > 0.9) {
                              ctx.fillStyle = "#000";
@@ -1220,82 +1429,13 @@
                             ctx.fillRect(drawX, spriteTop, colWidth, h);
                             
                             if (texX > 0.3 && texX < 0.45 || texX > 0.55 && texX < 0.7) {
-                                ctx.fillStyle = (stalker.mode === 'RUSH' || anger > 0.5) ? "#ff0000" : "#fff"; 
+                                ctx.fillStyle = (stalker.mode === 'RUSH' || anger > 0.5) ? "#ff0000" : `rgb(${255*spriteBright}, ${255*spriteBright}, ${255*spriteBright})`; 
                                 ctx.fillRect(drawX, spriteTop + h * 0.2, colWidth, h * 0.05);
                             }
                         }
                     }
                 }
             }
-        }
-
-        function drawMinimap() {
-            const ms = 6; 
-            const mapWidthPx = (MAP_W * ms) + 10;
-            const mapHeightPx = (MAP_H * ms) + 10;
-            const leftX = 20; const rightX = canvas.width - mapWidthPx - 20; const yPos = 20;
-
-            function renderMapAt(offsetX, offsetY, gridType, label) {
-                const grid = (gridType === 'past') ? pastGrid : presentGrid;
-                
-                const isMapActive = (inPast && gridType === 'past') || (!inPast && gridType === 'present');
-                if (isMapActive) {
-                    ctx.fillStyle = "#ffff00"; ctx.font = "bold 12px monospace";
-                    ctx.fillText("👁 VIEW HERE", offsetX, offsetY - 8);
-                } else {
-                    ctx.fillStyle = "#555"; ctx.font = "10px monospace";
-                    ctx.fillText("INACTIVE", offsetX, offsetY - 8);
-                }
-
-                ctx.fillStyle = "rgba(0,0,0,0.95)"; ctx.fillRect(offsetX - 5, offsetY - 5, mapWidthPx, mapHeightPx);
-                ctx.fillStyle = (gridType === 'past') ? "#ff3333" : "#4444ff"; ctx.font = "10px monospace";
-                ctx.fillText(label, offsetX, offsetY + mapHeightPx + 8);
-
-                for (let y = 0; y < MAP_H; y++) {
-                    for (let x = 0; x < MAP_W; x++) {
-                        if (grid[y][x] === 1) ctx.fillStyle = (gridType === 'past') ? "#330000" : "#0a1a2a";
-                        else if (grid[y][x] === 2) {
-                            ctx.fillStyle = "#aaaa00"; 
-                            ctx.fillRect(offsetX + x * ms, offsetY + y * ms, ms - 1, ms - 1);
-                            
-                            if(tutorialActive) {
-                                const pulse = Math.sin(Date.now() / 200) * 3 + 4;
-                                ctx.strokeStyle = "#ffff00";
-                                ctx.lineWidth = 1;
-                                ctx.beginPath();
-                                ctx.arc(offsetX + x * ms + ms/2, offsetY + y * ms + ms/2, pulse, 0, Math.PI*2);
-                                ctx.stroke();
-                            }
-                            continue; 
-                        }
-                        else if (grid[y][x] === 3) ctx.fillStyle = "#008800"; 
-                        else if (grid[y][x] === 4) ctx.fillStyle = "#ff00ff"; 
-                        else ctx.fillStyle = "#020202"; 
-                        ctx.fillRect(offsetX + x * ms, offsetY + y * ms, ms - 1, ms - 1);
-                    }
-                }
-                
-                let px = offsetX + player.x * ms + ms / 2;
-                let py = offsetY + player.y * ms + ms / 2;
-                const isCurrentDim = (inPast && gridType === 'past') || (!inPast && gridType === 'present');
-                
-                if (isCurrentDim && stalker.active) {
-                    let sx = offsetX + stalker.gridX * ms;
-                    let sy = offsetY + stalker.gridY * ms;
-                    ctx.fillStyle = stalker.mode === 'RUSH' ? "#ff0000" : "#ff8800";
-                    ctx.fillRect(sx, sy, ms, ms);
-                }
-
-                ctx.fillStyle = isCurrentDim ? "#fff" : "#555"; 
-                ctx.fillRect(offsetX + player.x * ms, offsetY + player.y * ms, ms - 1, ms - 1);
-                ctx.save(); ctx.translate(px, py);
-                ctx.fillStyle = isCurrentDim ? "rgba(255, 255, 200, 0.4)" : "rgba(100, 100, 100, 0.1)";
-                ctx.beginPath(); ctx.moveTo(0, 0);
-                ctx.arc(0, 0, ms * 3, view.angle - 0.6, view.angle + 0.6);
-                ctx.fill(); ctx.restore();
-            }
-            renderMapAt(leftX, yPos, 'present', "PRESENT");
-            renderMapAt(rightX, yPos, 'past', "PAST");
         }
 
         let lastTime = 0; let accumulator = 0; const TARGET_UPS = 60; const STEP = 1000 / TARGET_UPS; 
